@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keranjang Belanja - MediMart</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/cart.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="header-top">
+                <div class="logo" onclick="window.location.href='index.html'">
+                    <div class="logo-icon">💊</div>
+                    <span>MediMart</span>
+                </div>
+                
+                <div class="search-bar">
+                    <input type="text" placeholder="Cari obat, vitamin, atau produk kesehatan..." disabled>
+                    <button class="search-btn">🔍</button>
+                </div>
+
+                <div class="header-actions">
+                    <button class="cart-btn active">
+                        🛒
+                        <span class="cart-badge" id="cartBadge">0</span>
+                    </button>
+                    
+                    <div id="authButtons" class="user-menu">
+                        <a href="login.html" class="auth-btn btn-login" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">Login</a>
+                    </div>
+
+                    <div id="userMenu" class="user-menu hidden">
+                        <div class="user-avatar" id="userAvatar"></div>
+                        <span class="user-name" id="userName"></span>
+                        <button class="auth-btn btn-logout" onclick="logout()">Logout</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-tabs">
+                <button class="nav-tab" onclick="window.location.href='index.html'">🏪 Marketplace</button>
+                <button class="nav-tab" onclick="window.location.href='index.html'">📊 Dashboard Toko</button>
+                <button class="nav-tab active">🛒 Keranjang</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Cart Page Content -->
+    <div class="cart-page-container">
+        <div class="cart-content">
+            <!-- Cart Header -->
+            <div class="cart-page-header">
+                <button class="btn-back" onclick="window.location.href='index.html'">
+                    <span>←</span>
+                    <span>Lanjut Belanja</span>
+                </button>
+                <h1>Keranjang Belanja</h1>
+                <p class="cart-subtitle">Review pesanan Anda sebelum checkout</p>
+            </div>
+
+            <!-- Cart Items Section -->
+            <div class="cart-main">
+                <div class="cart-items-section">
+                    <div class="section-header-cart">
+                        <h2>Item di Keranjang (<span id="itemCount">0</span>)</h2>
+                        <button class="btn-clear" onclick="clearCart()" id="btnClear">
+                            <span>🗑️</span>
+                            <span>Kosongkan</span>
+                        </button>
+                    </div>
+
+                    <div id="cartItemsContainer">
+                        <!-- Items will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Order Summary Sidebar -->
+                <div class="order-summary">
+                    <div class="summary-card">
+                        <h3>Ringkasan Pesanan</h3>
+                        
+                        <div class="summary-row">
+                            <span>Subtotal (<span id="summaryItemCount">0</span> item)</span>
+                            <span id="subtotal">Rp 0</span>
+                        </div>
+
+                        <div class="summary-row">
+                            <span>Ongkos Kirim</span>
+                            <span class="text-primary" id="shipping">GRATIS</span>
+                        </div>
+
+                        <div class="summary-row">
+                            <span>Diskon</span>
+                            <span class="text-success" id="discount">Rp 0</span>
+                        </div>
+
+                        <div class="divider-summary"></div>
+
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span id="total">Rp 0</span>
+                        </div>
+
+                        <button class="btn-checkout-page" onclick="checkout()" id="btnCheckout">
+                            <span>Checkout Sekarang</span>
+                            <span>→</span>
+                        </button>
+
+                        <div class="payment-methods">
+                            <p>Metode Pembayaran:</p>
+                            <div class="payment-icons">
+                                <span>💳</span>
+                                <span>🏦</span>
+                                <span>📱</span>
+                                <span>💰</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Promo Code -->
+                    <div class="promo-card">
+                        <h4>Punya Kode Promo?</h4>
+                        <div class="promo-input-group">
+                            <input type="text" id="promoCode" placeholder="Masukkan kode promo">
+                            <button class="btn-apply-promo" onclick="applyPromo()">Pakai</button>
+                        </div>
+                    </div>
+
+                    <!-- Trust Badges -->
+                    <div class="trust-badges">
+                        <div class="trust-item">
+                            <span class="trust-icon">✅</span>
+                            <span>Produk Original</span>
+                        </div>
+                        <div class="trust-item">
+                            <span class="trust-icon">🚚</span>
+                            <span>Pengiriman Cepat</span>
+                        </div>
+                        <div class="trust-item">
+                            <span class="trust-icon">🔒</span>
+                            <span>Transaksi Aman</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommended Products -->
+            <div class="recommended-section">
+                <h2 class="section-title">Mungkin Anda Tertarik</h2>
+                <div class="recommended-grid" id="recommendedProducts">
+                    <!-- Recommended products will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Success Modal -->
+    <div class="modal" id="successModal">
+        <div class="modal-content success-modal">
+            <div class="success-icon">
+                <div class="success-checkmark">✓</div>
+            </div>
+            <h2>Checkout Berhasil!</h2>
+            <p class="success-message" id="successMessage"></p>
+            <div class="success-details">
+                <div class="detail-row">
+                    <span>Total Pembayaran:</span>
+                    <strong id="successTotal">Rp 0</strong>
+                </div>
+                <div class="detail-row">
+                    <span>Jumlah Item:</span>
+                    <strong id="successItems">0</strong>
+                </div>
+            </div>
+            <button class="btn-success-ok" onclick="closeSuccessModal()">
+                Oke, Mengerti
+            </button>
+            <a href="index.html" class="link-continue-shopping">Lanjut Belanja</a>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/database.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/cart-page.js"></script>
+</body>
+</html>

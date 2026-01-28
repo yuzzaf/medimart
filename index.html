@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediMart - Marketplace Obat Online</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="header-top">
+                <div class="logo" onclick="app.showMarketplace()">
+                    <div class="logo-icon">💊</div>
+                    <span>MediMart</span>
+                </div>
+                
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="Cari obat, vitamin, atau produk kesehatan..." onkeyup="app.searchProducts()">
+                    <button class="search-btn">🔍</button>
+                </div>
+
+                <div class="header-actions">
+                    <a href="cart.html" class="cart-btn" style="text-decoration: none; color: inherit;">
+                        🛒
+                        <span class="cart-badge" id="cartBadge">0</span>
+                    </a>
+                    
+                    <div id="authButtons" class="user-menu">
+                        <a href="login.html" class="auth-btn btn-login" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">Login</a>
+                    </div>
+
+                    <div id="userMenu" class="user-menu hidden">
+                        <div class="user-avatar" id="userAvatar"></div>
+                        <span class="user-name" id="userName"></span>
+                        <button class="auth-btn btn-logout" onclick="app.logout()">Logout</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-tabs">
+                <button class="nav-tab" id="tabMarketplace" onclick="app.showMarketplace()">🏪 Marketplace</button>
+                <button class="nav-tab active" id="tabDashboard" onclick="app.showDashboard()">📊 Dashboard Toko</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Marketplace View -->
+        <div id="marketplaceView" class="hidden">
+            <div class="section-header">
+                <h2 class="section-title">Semua Produk</h2>
+            </div>
+            <div class="products-grid" id="marketplaceProducts"></div>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboardView">
+            <div class="dashboard-header">
+                <h1>Dashboard Toko Saya</h1>
+                <p>Kelola produk obat Anda dengan mudah</p>
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalProducts">0</div>
+                        <div class="stat-label">Total Produk</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalStock">0</div>
+                        <div class="stat-label">Total Stok</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalValue">Rp 0</div>
+                        <div class="stat-label">Nilai Inventory</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-header">
+                <h2 class="section-title">Produk Saya</h2>
+                <button class="btn-primary" onclick="app.openProductModal()">
+                    <span>➕</span>
+                    Tambah Produk
+                </button>
+            </div>
+            <div class="products-grid" id="dashboardProducts"></div>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div class="modal" id="productModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="productModalTitle">➕ Tambah Produk Baru</h2>
+            </div>
+            <form onsubmit="app.saveProduct(event)">
+                <div class="form-group">
+                    <label class="form-label">Nama Produk</label>
+                    <input type="text" class="form-input" id="productName" required placeholder="Contoh: Paracetamol 500mg">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Kategori</label>
+                    <select class="form-select" id="productCategory" required>
+                        <option value="">Pilih Kategori</option>
+                        <option value="Obat Bebas">Obat Bebas</option>
+                        <option value="Obat Keras">Obat Keras</option>
+                        <option value="Vitamin">Vitamin & Suplemen</option>
+                        <option value="Alat Kesehatan">Alat Kesehatan</option>
+                        <option value="Herbal">Obat Herbal</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Deskripsi</label>
+                    <textarea class="form-textarea" id="productDescription" required placeholder="Deskripsi produk, manfaat, dan cara pakai"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Harga (Rp)</label>
+                        <input type="number" class="form-input" id="productPrice" required min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stok</label>
+                        <input type="number" class="form-input" id="productStock" required min="0" placeholder="0">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" onclick="app.closeProductModal()">Batal</button>
+                    <button type="submit" class="btn-submit">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/database.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
