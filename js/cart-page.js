@@ -390,3 +390,22 @@ function addRecommendedToCart(productId) {
 
 // Log
 console.log('%c MediMart Cart Page ', 'background: #00B09B; color: white; font-size: 16px; font-weight: bold; padding: 10px;');
+
+/**
+ * Search products (Redirect to Marketplace)
+ */
+function searchProducts(event) {
+    // If triggered by keyup, only proceed on Enter
+    if (event.type === 'keyup' && event.key !== 'Enter') {
+        return;
+    }
+
+    const input = document.getElementById('searchInput');
+    if (!input) return;
+
+    const query = input.value.trim();
+    if (query) {
+        // Redirect to marketplace with search query
+        window.location.href = `index.html?search=${encodeURIComponent(query)}`;
+    }
+}

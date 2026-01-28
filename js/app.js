@@ -36,6 +36,16 @@ class App {
             } else {
                 this.ui.renderMarketplace();
                 this.ui.showMarketplace();
+
+                // Check for search query
+                const searchQuery = urlParams.get('search');
+                if (searchQuery) {
+                    const searchInput = document.getElementById('searchInput');
+                    if (searchInput) {
+                        searchInput.value = searchQuery;
+                        this.ui.searchProducts();
+                    }
+                }
             }
         } else {
             // Guest Mode Logic
@@ -265,12 +275,28 @@ class App {
     }
 
     /**
+     * Search marketplace products
+     */
+    searchProducts() {
+        this.debouncedSearch();
+    }
+
+    /**
      * Search Store Products
      */
     searchStoreProducts() {
         const input = document.getElementById('storeSearchInput');
         this.ui.currentSearchQuery = input ? input.value : '';
         this.ui._renderStoreProductGrid(this.db.getCurrentUser());
+    }
+
+    /**
+     * Search Customer Orders
+     */
+    searchCustomerOrders() {
+        const input = document.getElementById('custSearchInput');
+        this.ui.currentCustomerSearchQuery = input ? input.value : '';
+        this.ui._renderCustomerDashboard(this.db.getCurrentUser());
     }
 
     /**

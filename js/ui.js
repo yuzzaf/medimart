@@ -213,11 +213,20 @@ class UI {
         if (elActive) elActive.textContent = activeOrders;
         if (elSpent) elSpent.textContent = Utils.formatPrice(totalSpent);
 
+        // Filter Orders if Search Query exists
+        if (this.currentCustomerSearchQuery) {
+            const query = this.currentCustomerSearchQuery.toLowerCase();
+            orders = orders.filter(o =>
+                o.id.toLowerCase().includes(query) ||
+                o.items.some(i => i.productName.toLowerCase().includes(query))
+            );
+        }
+
         // Render Table
         const tbody = Utils.$('orderHistoryBody');
         if (tbody) {
             if (orders.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding: 24px; text-align: center;">Belum ada pesanan</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="padding: 24px; text-align: center;">Tidak ada pesanan yang cocok</td></tr>';
             } else {
                 tbody.innerHTML = orders.map(order => this._renderOrderRow(order)).join('');
             }
@@ -368,23 +377,44 @@ class UI {
                 </div>
             </div>
 
-            <div class="section-header">
+            <div class="section-header" style="justify-content: space-between;">
                 <h2 class="section-title">Produk Saya</h2>
-                <button class="btn-primary" onclick="app.openProductModal()">
-                    <span>➕</span> Tambah Produk
-                </button>
+                <div style="display: flex; gap: 12px;">
+                    <input type="text" id="storeSearchInput" placeholder="Cari nama atau kategori..." 
+                           style="padding: 10px; border: 1px solid #ddd; border-radius: 8px; width: 250px;"
+                           onkeyup="app.searchStoreProducts()">
+                    
+                    <button class="btn-primary" onclick="app.openProductModal()">
+                        <span>➕</span> Tambah
+                    </button>
+                </div>
             </div>
             <div class="products-grid" id="dashboardProducts"></div>
         `;
 
-        const products = this.db.getUserProducts();
-        const grid = Utils.$('dashboardProducts');
-        if (grid) {
-            if (products.length === 0) {
-                grid.innerHTML = this.renderEmptyState('📦', 'Belum ada produk.');
-            } else {
-                grid.innerHTML = products.map(p => this.renderProductCard(p, 'dashboard')).join('');
-            }
+
+        this._renderStoreProductGrid(user);
+    }
+
+    _renderStoreProductGrid(user) {
+        const grid = document.getElementById('dashboardProducts');
+        if (!grid) return;
+
+        let products = this.db.getUserProducts();
+
+        // Filter by Search Query
+        if (this.currentSearchQuery) {
+            const lowerQuery = this.currentSearchQuery.toLowerCase();
+            products = products.filter(p =>
+                p.name.toLowerCase().includes(lowerQuery) ||
+                p.category.toLowerCase().includes(lowerQuery)
+            );
+        }
+
+        if (products.length === 0) {
+            grid.innerHTML = this.renderEmptyState('📦', 'Belum ada produk.');
+        } else {
+            grid.innerHTML = products.map(p => this.renderProductCard(p, 'dashboard')).join('');
         }
     }
 
@@ -397,9 +427,9 @@ class UI {
         }
 
         container.innerHTML = `
-             <div class="section-header">
+            <div class="section-header">
                 <h2 class="section-title">Manajemen Pengguna</h2>
-            </div>
+            </div >
             <div class="table-container" style="background: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow-sm);">
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
@@ -498,7 +528,7 @@ class UI {
                     </div>
                 </td>
             </tr>
-        `;
+            `;
     }
 
     /**
@@ -530,13 +560,13 @@ class UI {
         if (view === 'dashboard') {
             if (isAdminOrSeller && user.role !== 'admin') {
                 actions = `
-                    <button class="btn-small btn-edit" onclick="app.openProductModal(${product.id})">
+            <button class="btn-small btn-edit" onclick="app.openProductModal(${product.id})">
                         ✏️ Edit
                     </button>
-                    <button class="btn-small btn-delete" onclick="app.deleteProduct(${product.id})">
-                        🗑️ Hapus
-                    </button>
-                `;
+            <button class="btn-small btn-delete" onclick="app.deleteProduct(${product.id})">
+                🗑️ Hapus
+            </button>
+        `;
             } else {
                 actions = `<span class="text-secondary" style="font-size: 12px; color: #6b7280;">View Only</span>`;
             }
@@ -545,19 +575,19 @@ class UI {
             if (isAdminOrSeller) {
                 // Admin sees Edit/Delete even in Marketplace
                 actions = `
-                    <button class="btn-small btn-edit" onclick="app.openProductModal(${product.id})">
+            <button class="btn-small btn-edit" onclick="app.openProductModal(${product.id})">
                         ✏️ Edit
                     </button>
-                `;
+            `;
             } else {
                 // Customer / Guest
                 actions = `
-                    <button class="btn-small btn-cart"
-                            onclick="app.addToCart(${product.id})"
+            <button class="btn-small btn-cart"
+        onclick = "app.addToCart(${product.id})"
                             ${isOutOfStock ? 'disabled' : ''}>
                         🛒 ${isOutOfStock ? 'Habis' : 'Tambah'}
                     </button>
-                `;
+            `;
             }
         }
 
@@ -581,7 +611,7 @@ class UI {
                     </div>
                 </div>
             </div>
-        `;
+            `;
     }
 
     /**
@@ -596,7 +626,7 @@ class UI {
                 <div class="empty-state-icon">${icon}</div>
                 <div class="empty-state-text">${Utils.sanitizeHTML(text)}</div>
             </div>
-        `;
+            `;
     }
 
     // ==========================================
