@@ -55,76 +55,164 @@
         <!-- Right Side - Login Form -->
         <div class="login-right">
             <div class="login-box">
-                <div class="login-header">
-                    <h2>Selamat Datang!</h2>
-                    <p>Silakan login untuk melanjutkan</p>
+                <div id="loginView">
+                    <div class="login-header">
+                        <h2>Selamat Datang!</h2>
+                        <p>Silakan login sesuai peran Anda</p>
+                    </div>
+
+                    <!-- Role Tabs -->
+                    <div class="role-tabs"
+                        style="display: flex; gap: 8px; margin-bottom: 24px; padding: 4px; background: #f3f4f6; border-radius: 12px;">
+                        <button type="button" class="role-tab active" onclick="selectRole('customer')"
+                            style="flex: 1; padding: 8px; border: none; border-radius: 8px; background: white; color: var(--primary); font-weight: 600; cursor: pointer; transition: all 0.3s; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                            Pelanggan
+                        </button>
+                        <button type="button" class="role-tab" onclick="selectRole('seller')"
+                            style="flex: 1; padding: 8px; border: none; border-radius: 8px; background: transparent; color: #6b7280; font-weight: 500; cursor: pointer; transition: all 0.3s;">
+                            Seller
+                        </button>
+                        <button type="button" class="role-tab" onclick="selectRole('admin')"
+                            style="flex: 1; padding: 8px; border: none; border-radius: 8px; background: transparent; color: #6b7280; font-weight: 500; cursor: pointer; transition: all 0.3s;">
+                            Admin
+                        </button>
+                    </div>
+
+                    <form id="loginForm" class="login-form">
+                        <div class="form-group">
+                            <label for="username">Email / Username</label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">👤</span>
+                                <input type="text" id="username" name="username"
+                                    placeholder="Masukkan email atau username" required autocomplete="username">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">🔒</span>
+                                <input type="password" id="password" name="password" placeholder="Masukkan password"
+                                    required autocomplete="current-password">
+                                <button type="button" class="toggle-password" onclick="togglePassword()">
+                                    <span id="toggleIcon">👁️</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-options">
+                            <label class="remember-me">
+                                <input type="checkbox" id="rememberMe">
+                                <span>Ingat saya</span>
+                            </label>
+                            <a href="#" class="forgot-password">Lupa password?</a>
+                        </div>
+
+                        <button type="submit" class="btn-login">
+                            <span>Login</span>
+                            <span class="btn-icon">→</span>
+                        </button>
+
+                        <div class="divider">
+                            <span>atau</span>
+                        </div>
+
+                        <button type="button" class="btn-guest" onclick="continueAsGuest()">
+                            <span>🛒</span>
+                            <span>Lanjut sebagai Tamu</span>
+                        </button>
+                    </form>
+
+                    <div class="login-footer">
+                        <p>Belum punya akun? <a href="#" class="link-register"
+                                onclick="toggleAuthMode(); return false;">Daftar sekarang</a></p>
+                    </div>
                 </div>
 
-                <form id="loginForm" class="login-form">
-                    <div class="form-group">
-                        <label for="username">Email / Username</label>
-                        <div class="input-wrapper">
-                            <span class="input-icon">👤</span>
-                            <input type="text" id="username" name="username" placeholder="Masukkan email atau username"
-                                required autocomplete="username">
+                <!-- REGISTER VIEW -->
+                <div id="registerView" style="display: none;">
+                    <div class="login-header">
+                        <h2>Buat Akun Baru</h2>
+                        <p>Bergabung dengan MediMart</p>
+                    </div>
+
+                    <form id="registerForm" class="login-form">
+                        <div class="form-group">
+                            <label style="margin-bottom: 8px; display: block;">Saya ingin mendaftar sebagai:</label>
+                            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                                <label
+                                    style="flex: 1; cursor: pointer; border: 2px solid #e5e7eb; padding: 12px; border-radius: 10px; text-align: center; font-weight: 500; transition: all 0.2s;"
+                                    class="role-option">
+                                    <input type="radio" name="regRole" value="customer" checked
+                                        style="margin-right: 6px;"> Pelanggan
+                                </label>
+                                <label
+                                    style="flex: 1; cursor: pointer; border: 2px solid #e5e7eb; padding: 12px; border-radius: 10px; text-align: center; font-weight: 500; transition: all 0.2s;"
+                                    class="role-option">
+                                    <input type="radio" name="regRole" value="seller" style="margin-right: 6px;"> Seller
+                                </label>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="form-group">
-                        <label for="password">Password</label>
-                        <div class="input-wrapper">
-                            <span class="input-icon">🔒</span>
-                            <input type="password" id="password" name="password" placeholder="Masukkan password"
-                                required autocomplete="current-password">
-                            <button type="button" class="toggle-password" onclick="togglePassword()">
-                                <span id="toggleIcon">👁️</span>
-                            </button>
+                        <div class="form-group">
+                            <label for="regName">Nama Lengkap / Nama Toko</label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">📝</span>
+                                <input type="text" id="regName" required placeholder="Nama Anda atau Nama Toko">
+                            </div>
                         </div>
+
+                        <div class="form-group">
+                            <label for="regUsername">Username</label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">👤</span>
+                                <input type="text" id="regUsername" required placeholder="Buat username unik">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="regEmail">Email</label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">📧</span>
+                                <input type="email" id="regEmail" required placeholder="nama@email.com">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="regPassword">Password</label>
+                            <div class="input-wrapper">
+                                <span class="input-icon">🔒</span>
+                                <input type="password" id="regPassword" required placeholder="Buat password">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-login" style="margin-top: 16px;">
+                            <span>Daftar Sekarang</span>
+                            <span class="btn-icon">✨</span>
+                        </button>
+                    </form>
+
+                    <div class="login-footer">
+                        <p>Sudah punya akun? <a href="#" class="link-login"
+                                onclick="toggleAuthMode(); return false;">Login disini</a></p>
                     </div>
-
-                    <div class="form-options">
-                        <label class="remember-me">
-                            <input type="checkbox" id="rememberMe">
-                            <span>Ingat saya</span>
-                        </label>
-                        <a href="#" class="forgot-password">Lupa password?</a>
-                    </div>
-
-                    <button type="submit" class="btn-login">
-                        <span>Login</span>
-                        <span class="btn-icon">→</span>
-                    </button>
-
-                    <div class="divider">
-                        <span>atau</span>
-                    </div>
-
-                    <button type="button" class="btn-guest" onclick="continueAsGuest()">
-                        <span>🛒</span>
-                        <span>Lanjut sebagai Tamu</span>
-                    </button>
-                </form>
-
-                <div class="login-footer">
-                    <p>Belum punya akun? <a href="#" class="link-register">Daftar sekarang</a></p>
                 </div>
-            </div>
 
-            <!-- Demo Credentials Info -->
-            <div class="demo-info">
-                <p><strong>💡 Demo Accounts:</strong></p>
-                <p style="margin-top: 8px; font-size: 12px;">
-                    <strong>Admin:</strong> admin / admin123<br>
-                    <strong>Seller:</strong> seller1 / seller123<br>
-                    <strong>Customer:</strong> user / user123
-                </p>
+                <!-- Demo Credentials Info -->
+                <div class="demo-info">
+                    <p><strong>💡 Demo Accounts:</strong></p>
+                    <p style="margin-top: 8px; font-size: 12px;">
+                        <strong>Admin:</strong> admin / admin123<br>
+                        <strong>Seller:</strong> seller1 / seller123<br>
+                        <strong>Customer:</strong> user / user123
+                    </p>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- JavaScript -->
-    <script src="js/database.js"></script>
-    <script src="js/auth.js"></script>
+        <!-- JavaScript -->
+        <script src="js/database.js"></script>
+        <script src="js/auth.js"></script>
 </body>
 
 </html>

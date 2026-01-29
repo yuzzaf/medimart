@@ -64,6 +64,49 @@ document.getElementById('loginForm').addEventListener('submit', function (e) {
 });
 
 /**
+ * Handle Role Selection (Demo Feature)
+ * @param {string} role - Selected role 'customer', 'seller', 'admin'
+ */
+function selectRole(role) {
+    // 1. Update active tab
+    const tabs = document.querySelectorAll('.role-tab');
+    tabs.forEach(tab => {
+        // Reset styles first
+        tab.classList.remove('active');
+        tab.style.background = 'transparent';
+        tab.style.color = '#6b7280';
+        tab.style.boxShadow = 'none';
+
+        if (tab.getAttribute('onclick').includes(`'${role}'`)) {
+            tab.classList.add('active');
+            tab.style.background = 'white';
+            tab.style.color = 'var(--primary)';
+            tab.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+        }
+    });
+
+    // 2. Auto-fill Creds
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+
+    if (role === 'admin') {
+        usernameInput.value = 'admin';
+        passwordInput.value = 'admin123';
+    } else if (role === 'seller') {
+        usernameInput.value = 'seller1';
+        passwordInput.value = 'seller123';
+    } else {
+        usernameInput.value = 'user';
+        passwordInput.value = 'user123';
+    }
+}
+
+// Default role selection on load
+document.addEventListener('DOMContentLoaded', () => {
+    selectRole('customer');
+});
+
+/**
  * Toggle password visibility
  */
 function togglePassword() {
@@ -176,10 +219,55 @@ document.querySelector('.forgot-password')?.addEventListener('click', function (
     alert('Fitur lupa password akan segera hadir! 🔐\nUntuk demo ini, silakan gunakan username dan password apa saja.');
 });
 
-// Handle "register" link
-document.querySelector('.link-register')?.addEventListener('click', function (e) {
+// Handle "register" link - Now handled by inline onclick, but adding cleaner listener just in case
+// document.querySelector('.link-register')...
+
+/**
+ * Toggle between Login and Register views
+ */
+function toggleAuthMode() {
+    const loginView = document.getElementById('loginView');
+    const registerView = document.getElementById('registerView');
+
+    if (loginView.style.display === 'none') {
+        // Switch to Login
+        loginView.style.display = 'block';
+        registerView.style.display = 'none';
+    } else {
+        // Switch to Register
+        loginView.style.display = 'none';
+        registerView.style.display = 'block';
+    }
+}
+
+// Handle Register Form Submission
+document.getElementById('registerForm')?.addEventListener('submit', function (e) {
     e.preventDefault();
-    alert('Fitur registrasi akan segera hadir! 📝\nUntuk demo ini, silakan langsung login dengan username dan password apa saja.');
+
+    const role = document.querySelector('input[name="regRole"]:checked').value;
+    const name = document.getElementById('regName').value.trim();
+    const username = document.getElementById('regUsername').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+
+    if (!name || !username || !email || !password) {
+        showError('Mohon lengkapi semua data ⚠️');
+        return;
+    }
+
+    const userData = { role, name, username, email, password };
+
+    // Call database register
+    const result = db.register(userData);
+
+    if (result.success) {
+        showSuccess(`Registrasi Berhasil! Selamat datang, ${name} 🎉`);
+        setTimeout(() => {
+            window.location.href = 'index.html';
+        }, 1500);
+    } else {
+        showError(result.message);
+    }
 });
 
 // Add enter key support for password field

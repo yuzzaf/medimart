@@ -13,6 +13,7 @@
 
     <!-- CSS -->
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
 </head>
 
 <body>
@@ -179,6 +180,30 @@
             </div>
             <form onsubmit="app.saveProduct(event)">
                 <div class="form-group">
+                    <label class="form-label">Foto Produk (Opsional)</label>
+                    <div style="display: flex; gap: 16px; align-items: start;">
+                        <div id="productImagePreviewContainer" style="
+                            width: 80px; 
+                            height: 80px; 
+                            background: #f3f4f6; 
+                            border-radius: 8px; 
+                            display: flex; 
+                            align-items: center; 
+                            justify-content: center; 
+                            overflow: hidden; 
+                            border: 1px dashed #d1d5db;
+                            flex-shrink: 0;
+                        ">
+                            <span style="font-size: 24px;">📷</span>
+                        </div>
+                        <div style="flex-grow: 1;">
+                            <input type="file" id="productImageInput" accept="image/*" class="form-input"
+                                style="padding: 8px;">
+                            <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Format: JPG, PNG. Max: 1MB.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label class="form-label">Nama Produk</label>
                     <input type="text" class="form-input" id="productName" required
                         placeholder="Contoh: Paracetamol 500mg">
@@ -217,7 +242,45 @@
         </div>
     </div>
 
+    <!-- Crop Image Modal -->
+    <div id="cropModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>✂️ Crop Image</h2>
+                <button class="close-modal" onclick="app.closeCropModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <div class="crop-container" style="max-height: 400px; width: 100%; margin-bottom: 20px;">
+                    <img id="imageToCrop" style="max-width: 100%;">
+                </div>
+                <div class="form-actions">
+                    <button class="btn-secondary" onclick="app.closeCropModal()">Batal</button>
+                    <button class="btn-primary" onclick="app.saveCrop()">Potong & Simpan ✂️</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Orders Modal -->
+    <div id="customerOrdersModal" class="modal">
+        <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2 id="customerOrdersTitle">📦 Riwayat Pesanan Customer</h2>
+                <button class="close-modal" onclick="app.closeCustomerOrdersModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="customerOrdersList" class="order-list-container">
+                    <!-- Orders injected here -->
+                </div>
+            </div>
+            <div class="modal-footer" style="padding-top: 20px; text-align: right;">
+                <button class="btn-secondary" onclick="app.closeCustomerOrdersModal()">Tutup</button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script src="js/database.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/ui.js"></script>

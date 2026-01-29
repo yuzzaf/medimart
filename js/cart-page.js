@@ -176,9 +176,12 @@ function renderCart() {
 
         return `
             <div class="cart-page-item" data-product-id="${product.id}">
-                <div class="cart-item-img">${product.icon}</div>
+                <div class="cart-item-img" style="background-image: url('${product.image || ''}'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center;">
+                    ${product.image ? '' : product.icon}
+                </div>
                 
                 <div class="cart-item-details">
+                    <div class="seller-badge" style="margin-bottom: 4px; font-size: 11px;">🏪 ${Utils.sanitizeHTML(product.sellerName || 'Toko Resmi')}</div>
                     <div class="cart-item-category">${Utils.sanitizeHTML(product.category)}</div>
                     <div class="cart-item-name">${Utils.sanitizeHTML(product.name)}</div>
                     <div class="cart-item-price">${Utils.formatPrice(product.price)}</div>

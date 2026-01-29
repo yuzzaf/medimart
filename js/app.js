@@ -66,6 +66,12 @@ class App {
             }
         }
 
+        // Setup Image Upload Listener
+        const imageInput = document.getElementById('productImageInput');
+        if (imageInput) {
+            imageInput.addEventListener('change', (e) => this.handleImageUpload(e.target));
+        }
+
         // Setup debounced search
         this.debouncedSearch = Utils.debounce(() => {
             this.ui.searchProducts();
@@ -328,6 +334,127 @@ class App {
             localStorage.clear();
             location.reload();
         }
+    }
+
+    /**
+     * Handle Image Upload
+     * @param {HTMLInputElement} input 
+     */
+    handleImageUpload(input) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+
+            // Validate size (max 1MB)
+            if (file.size > 1024 * 1024) {
+                Utils.notify('Ukuran file terlalu besar. Maksimal 1MB. ⚠️');
+                input.value = ''; // Clear input
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const base64 = e.target.result;
+                // Open Crop Modal instead of direct update
+                this.ui.showCropModal(base64);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    /**
+     * Save cropped image
+     */
+    saveCrop() {
+        this.ui.saveCrop();
+    }
+
+    /**
+     * Close crop modal
+     */
+    closeCropModal() {
+        this.ui.closeCropModal();
+    }
+
+    /**
+     * Re-open crop modal with current image
+     */
+    reCropImage() {
+        this.ui.reCropImage();
+    }
+
+    /**
+     * Remove current product image
+     */
+    removeImage() {
+        if (confirm('Hapus gambar produk ini?')) {
+            this.ui.resetImagePreview(true); // true = clear input too
+        }
+    }
+
+    /**
+     * Show Customer Orders Modal
+     */
+    showCustomerOrders(customerId) {
+        const currentUser = this.db.getCurrentUser();
+        if (!currentUser || currentUser.role !== 'seller') return;
+
+        const customer = this.db.getAllUsers().find(u => u.id === customerId);
+        if (!customer) return;
+
+        // Get orders for this customer that contain items from this seller
+        const allOrders = this.db.orders;
+        const myOrders = allOrders.filter(order =>
+            order.userId === customerId &&
+            order.items.some(item => item.sellerId === currentUser.id)
+        );
+
+        // Keep a reference for refreshing
+        this.currentViewCustomerId = customerId;
+
+        this.ui.renderCustomerOrdersModal(customer, myOrders, currentUser.id);
+    }
+
+    /**
+     * Reject Order Items (Seller Action)
+     */
+    rejectOrder(orderId) {
+        const currentUser = this.db.getCurrentUser();
+        if (!currentUser) return;
+
+        if (confirm('Tolak produk-produk dari toko Anda dalam pesanan ini? Stok akan dikembalikan.')) {
+            if (this.db.rejectSellerItems(orderId, currentUser.id)) {
+                Utils.notify('Produk berhasil ditolak.', 'success');
+                // Refresh Modal
+                if (this.currentViewCustomerId) {
+                    this.showCustomerOrders(this.currentViewCustomerId);
+                }
+            } else {
+                Utils.notify('Gagal menolak pesanan atau status sudah final.', 'error');
+            }
+        }
+    }
+
+    /**
+     * Cancel Order Item (Customer Action)
+     */
+    cancelOrderItem(orderId, productId) {
+        if (confirm('Batalkan produk ini? Stok akan dikembalikan.')) {
+            if (this.db.cancelOrderItem(orderId, productId)) {
+                Utils.notify('Item dibatalkan.', 'success');
+                // Reload Dashboard View (no page reload)
+                this.ui.renderDashboard();
+            } else {
+                Utils.notify('Gagal membatalkan item.', 'error');
+            }
+        }
+    }
+
+    /**
+     * Close Customer Orders Modal
+     */
+    closeCustomerOrdersModal() {
+        this.currentViewCustomerId = null;
+        this.ui.closeCustomerOrdersModal();
     }
 }
 

@@ -34,10 +34,12 @@ class Database {
                 items: [
                     {
                         productId: 1,
-                        productName: 'Obat Pelicin',
+                        productName: 'Obat Stamina',
                         price: 25000,
                         quantity: 2,
-                        icon: '💧'
+                        icon: "💪",
+                        sellerId: 2,
+                        sellerName: 'Apotek Sehat'
                     }
                 ],
                 total: 50000,
@@ -119,15 +121,15 @@ class Database {
         return [
             {
                 id: 1,
-                name: 'Obat Pelicin',
-                category: 'Alat Kesehatan',
-                description: 'Cairan pelicin medis serbaguna.',
+                name: 'Obat Stamina',
+                category: 'Herbal',
+                description: 'Suplemen herbal peningkat stamina.',
                 price: 25000,
                 stock: 50,
                 seller: 'seller1',
                 sellerId: 2,
                 sellerName: 'Apotek Sehat',
-                icon: '💧'
+                icon: "💪"
             },
             {
                 id: 2,
@@ -410,10 +412,14 @@ class Database {
                 productName: i.product.name,
                 price: i.product.price,
                 quantity: i.quantity,
-                icon: i.product.icon
+                icon: i.product.icon,
+                image: i.product.image || null,
+                sellerId: i.product.sellerId,
+                sellerName: i.product.sellerName,
+                status: 'pending' // Item-level status
             })),
             total: total,
-            status: 'success', // For now, assume payment success immediately
+            status: 'pending', // Global status (calculated)
             createdAt: new Date().toISOString()
         };
 
@@ -431,26 +437,78 @@ class Database {
     }
 
     /**
-     * Cancel Order
+     * Reject Seller's Items in an Order
      * @param {string} orderId 
+     * @param {number} sellerId 
      */
-    cancelOrder(orderId) {
+    rejectSellerItems(orderId, sellerId) {
         const order = this.orders.find(o => o.id === orderId);
-        if (order && order.status !== 'cancelled') {
-            order.status = 'cancelled';
+        if (!order) return false;
 
-            // Restore stock
-            order.items.forEach(item => {
+        let modified = false;
+
+        order.items.forEach(item => {
+            const currentStatus = item.status || 'pending';
+            // Allow rejection if pending or even success (legacy default)
+            if (item.sellerId === sellerId && (currentStatus === 'pending' || currentStatus === 'success')) {
+                item.status = 'rejected';
+
+                // Restore stock
                 const product = this.getProductById(item.productId);
-                if (product) {
-                    product.stock += item.quantity;
-                }
-            });
+                if (product) product.stock += item.quantity;
+
+                modified = true;
+            }
+        });
+
+        if (modified) {
+            this.updateGlobalStatus(order);
             this.save(this.KEYS.PRODUCTS, this.products);
             this.save(this.KEYS.ORDERS, this.orders);
             return true;
         }
         return false;
+    }
+
+    /**
+     * Cancel Specific Item (Customer Action)
+     * @param {string} orderId 
+     * @param {number} productId 
+     */
+    cancelOrderItem(orderId, productId) {
+        const order = this.orders.find(o => o.id === orderId);
+        if (!order) return false;
+
+        const item = order.items.find(i => i.productId === productId);
+        const currentStatus = item ? (item.status || 'pending') : null;
+
+        if (item && (currentStatus === 'pending' || currentStatus === 'success')) {
+            item.status = 'cancelled';
+
+            // Restore stock
+            const product = this.getProductById(item.productId);
+            if (product) product.stock += item.quantity;
+
+            this.updateGlobalStatus(order);
+            this.save(this.KEYS.PRODUCTS, this.products);
+            this.save(this.KEYS.ORDERS, this.orders);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Update Global Order Status based on Items
+     */
+    updateGlobalStatus(order) {
+        const statuses = order.items.map(i => i.status || 'pending');
+        if (statuses.every(s => s === 'cancelled' || s === 'rejected')) {
+            order.status = 'cancelled'; // Fully cancelled/rejected
+        } else if (statuses.some(s => s === 'pending')) {
+            order.status = 'pending'; // Partial
+        } else {
+            order.status = 'mixed'; // Completed items exist
+        }
     }
 
     /**
@@ -542,6 +600,44 @@ class Database {
      * @param {string} password - Password
      * @returns {Object} Login result with success status and user data
      */
+    /**
+     * Register new user
+     * @param {Object} userData - User data
+     */
+    register(userData) {
+        // 1. Check if username exists
+        const existingUser = this.users.find(u => u.username === userData.username);
+        if (existingUser) {
+            return { success: false, message: 'Username sudah digunakan!' };
+        }
+
+        // 2. Create new user
+        const newUser = {
+            id: Date.now(),
+            username: userData.username,
+            password: userData.password,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+            createdAt: new Date().toISOString()
+        };
+
+        // 3. Save
+        this.users.push(newUser);
+        this.save(this.KEYS.USERS, this.users);
+
+        // 4. Auto login
+        this.currentUser = newUser;
+        this.save(this.KEYS.CURRENT_USER, this.currentUser);
+
+        return { success: true, user: newUser };
+    }
+
+    /**
+     * Authenticate user
+     * @param {string} username 
+     * @param {string} password 
+     */
     login(username, password) {
         const user = this.authenticate(username, password);
 
@@ -560,39 +656,7 @@ class Database {
         return { success: false, message: 'Username atau password salah' };
     }
 
-    /**
-     * Register new user
-     * @param {Object} userData - User registration data
-     * @returns {Object} Registration result
-     */
-    register(userData) {
-        // Check if username already exists
-        const existingUser = this.users.find(u =>
-            u.username === userData.username || u.email === userData.email
-        );
 
-        if (existingUser) {
-            return {
-                success: false,
-                message: 'Username atau email sudah terdaftar'
-            };
-        }
-
-        const newUser = {
-            id: Date.now(),
-            username: userData.username,
-            password: userData.password,
-            name: userData.name,
-            email: userData.email,
-            role: userData.role || 'customer',
-            createdAt: new Date().toISOString()
-        };
-
-        this.users.push(newUser);
-        this.save(this.KEYS.USERS, this.users);
-
-        return { success: true, user: newUser };
-    }
 
     /**
      * Logout user
