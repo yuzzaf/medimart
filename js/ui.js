@@ -9,6 +9,7 @@ class UI {
     constructor(database) {
         this.db = database;
         this.editingProductId = null;
+        this.tempProductImage = null; // Store Base64 image temporarily
     }
 
     // ==========================================
@@ -419,11 +420,12 @@ class UI {
     }
 
     _renderStoreUsers(user, container) {
-        let users = this.db.getAllUsers();
-
-        // Filter: Seller only sees Customers
+        let users;
+        // Filter: Seller only sees Customers who bought from them
         if (user.role === 'seller') {
-            users = users.filter(u => u.role === 'customer');
+            users = this.db.getCustomersBySeller(user.id);
+        } else {
+            users = this.db.getAllUsers();
         }
 
         container.innerHTML = `
@@ -439,6 +441,7 @@ class UI {
                             <th style="padding: 12px;">Email</th>
                             <th style="padding: 12px;">Role</th>
                             <th style="padding: 12px;">Tanggal Join</th>
+                            <th style="padding: 12px;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -455,7 +458,13 @@ class UI {
                                         ${u.role.toUpperCase()}
                                     </span>
                                 </td>
+                                </td>
                                 <td style="padding: 12px;">${new Date(u.createdAt).toLocaleDateString()}</td>
+                                <td style="padding: 12px;">
+                                    <button class="btn-small btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="app.showCustomerOrders(${u.id})">
+                                        📜 Pesanan
+                                    </button>
+                                </td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -490,7 +499,7 @@ class UI {
                         ⚠️ Reset & Reload Database
                     </button>
                     <p style="color: #9ca3af; font-size: 12px; margin-top: 8px;">
-                        Ini akan menghapus semua data dan memuat ulang data default ("Obat Pelicin", dll).
+                        Ini akan menghapus semua data dan memuat ulang data default ("Obat Stamina", dll).
                     </p>
                 </div>
             </div>
@@ -499,8 +508,10 @@ class UI {
 
     _renderOrderRow(order) {
         let statusBadge = '';
-        if (order.status === 'success') statusBadge = '<span class="product-badge badge-success" style="background: #10b981; position: static;">Berhasil</span>';
+        if (order.status === 'success') statusBadge = '<span class="product-badge badge-success" style="background: #10b981; position: static;">Selesai</span>';
         else if (order.status === 'cancelled') statusBadge = '<span class="product-badge badge-error" style="background: #ef4444; position: static;">Dibatalkan</span>';
+        else if (order.status === 'rejected') statusBadge = '<span class="product-badge badge-error" style="background: #6b7280; position: static;">Ditolak</span>';
+        else if (order.status === 'mixed') statusBadge = '<span class="product-badge" style="background: #8b5cf6; position: static;">Beragam</span>';
         else statusBadge = '<span class="product-badge" style="background: #f59e0b; position: static;">Pending</span>';
 
         const date = new Date(order.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -510,18 +521,45 @@ class UI {
                 <td style="padding: 16px; font-weight: 600;">${order.id}</td>
                 <td style="padding: 16px; color: var(--text-gray); font-size: 14px;">${date}</td>
                 <td style="padding: 16px;">
-                    <div style="font-size: 14px; max-width: 200px;">
-                        ${order.items.map(i => `${i.productName} (${i.quantity}x)`).join(', ')}
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        ${order.items.map(i => {
+            const iStatus = i.status || order.status || 'pending';
+            let iBadge = '';
+            if (iStatus === 'cancelled') iBadge = '<span style="font-size:10px; color:#ef4444; background:#fef2f2; padding:2px 6px; border-radius:4px;">Dibatalkan</span>';
+            else if (iStatus === 'rejected') iBadge = '<span style="font-size:10px; color:#6b7280; background:#f3f4f6; padding:2px 6px; border-radius:4px;">Ditolak Toko</span>';
+
+            // Action only if pending
+            let iAction = '';
+            if (iStatus === 'pending') {
+                iAction = `<button onclick="app.cancelOrderItem('${order.id}', ${i.productId})" title="Batalkan Item Ini" class="btn-small btn-delete" style="padding: 4px 8px; font-size: 10px; min-width: 60px;">Batal</button>`;
+            }
+
+            return `
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #f3f4f6;">
+                                <div style="display: flex; align-items: center;">
+                                    <div style="width: 40px; height: 40px; border-radius: 6px; background: #f3f4f6; margin-right: 10px; flex-shrink: 0; background-image: url('${i.image || ''}'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #9ca3af; overflow: hidden;">
+                                        ${i.image ? '' : (i.icon || '📦')}
+                                    </div>
+                                    <div>
+                                         <div style="font-size: 10px; color: #6b7280; margin-bottom: 2px;">🏪 ${i.sellerName || 'Toko Resmi'}</div>
+                                         <div style="font-size: 13px; font-weight: 500; line-height: 1.2;">
+                                            ${i.productName} 
+                                            <span style="color: #6b7280; font-size: 12px;">(x${i.quantity})</span>
+                                         </div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 80px;">
+                                    ${iBadge}
+                                    ${iAction}
+                                </div>
+                            </div>
+                        `}).join('')}
                     </div>
                 </td>
                 <td style="padding: 16px; font-weight: 600;">${Utils.formatPrice(order.total)}</td>
                 <td style="padding: 16px;">${statusBadge}</td>
                 <td style="padding: 16px;">
                     <div style="display: flex; gap: 8px;">
-                        ${order.status !== 'cancelled' ? `
-                        <button class="btn-small btn-delete" style="padding: 6px 12px;" onclick="app.cancelOrder('${order.id}')" title="Batalkan Pesanan">
-                            ❌ Batal
-                        </button>` : ''}
                         <button class="btn-small" style="padding: 6px 12px; background: #9ca3af; color: white; border: none; border-radius: 8px; cursor: pointer;" onclick="app.deleteOrder('${order.id}')" title="Hapus Riwayat">
                             🗑️
                         </button>
@@ -593,16 +631,19 @@ class UI {
 
         return `
             <div class="product-card ${isOutOfStock ? 'out-of-stock' : ''}">
-                <div class="product-image">
-                    ${product.icon}
+                <div class="product-image" style="background-image: url('${product.image || ''}'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center;">
+                    ${product.image ? '' : product.icon}
                     ${badge}
                 </div>
                 <div class="product-info">
-                    <div class="product-meta-top">
-                        ${categoryBadge}
-                        <span class="stock-info ${isLowStock ? 'text-warning' : ''} ${isOutOfStock ? 'text-error' : ''}">
-                            Stok: ${product.stock}
-                        </span>
+                    <div class="product-meta-top" style="display: flex; flex-direction: column; align-items: flex-start;">
+                        <span class="seller-badge">🏪 ${Utils.sanitizeHTML(product.sellerName || 'Toko Resmi')}</span>
+                        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                            ${categoryBadge}
+                            <span class="stock-info ${isLowStock ? 'text-warning' : ''} ${isOutOfStock ? 'text-error' : ''}">
+                                Stok: ${product.stock}
+                            </span>
+                        </div>
                     </div>
                     <div class="product-name" title="${Utils.sanitizeHTML(product.name)}">${Utils.sanitizeHTML(product.name)}</div>
                     <div class="product-price">${Utils.formatPrice(product.price)}</div>
@@ -651,6 +692,7 @@ class UI {
             }
         } else {
             this.editingProductId = null;
+            this.tempProductImage = null; // Reset temp image
             if (title) title.textContent = '➕ Tambah Produk Baru';
             this.resetProductForm();
         }
@@ -686,6 +728,14 @@ class UI {
             const element = Utils.$(id);
             if (element) element.value = fields[id];
         });
+
+        // Set Image Preview
+        if (product.image) {
+            this.updateImagePreview(product.image);
+            this.tempProductImage = product.image;
+        } else {
+            this.resetImagePreview();
+        }
     }
 
     /**
@@ -697,13 +747,16 @@ class UI {
             'productCategory',
             'productDescription',
             'productPrice',
-            'productStock'
+            'productStock',
+            'productImageInput' // Clean input
         ];
 
         fieldIds.forEach(id => {
             const element = Utils.$(id);
             if (element) element.value = '';
         });
+
+        this.resetImagePreview();
     }
 
     /**
@@ -717,8 +770,225 @@ class UI {
             description: Utils.$('productDescription')?.value || '',
             price: parseInt(Utils.$('productPrice')?.value || 0),
             stock: parseInt(Utils.$('productStock')?.value || 0),
-            icon: Utils.getIconForCategory(Utils.$('productCategory')?.value || '')
+            icon: Utils.getIconForCategory(Utils.$('productCategory')?.value || ''),
+            image: this.tempProductImage || null // Include Image
         };
+    }
+
+    // ==========================================
+    // Image Handling
+    // ==========================================
+
+    /**
+     * Update Image Preview
+     * @param {string} base64 - Base64 image string
+     */
+    updateImagePreview(base64) {
+        const container = Utils.$('productImagePreviewContainer');
+        if (container) {
+            this.tempProductImage = base64;
+            container.innerHTML = `
+                <div style="position: relative; width: 100%; height: 100%; group">
+                    <img src="${base64}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+                    <div style="position: absolute; bottom: 8px; right: 8px; display: flex; gap: 8px;">
+                         <button type="button" onclick="app.reCropImage()" title="Crop Ulang" style="background: white; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">✂️</button>
+                         <button type="button" onclick="app.removeImage()" title="Hapus Gambar" style="background: white; border: 1px solid #ef4444; color: #ef4444; border-radius: 4px; padding: 4px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🗑️</button>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Reset Image Preview to default state
+     */
+    resetImagePreview(clearInput = false) {
+        const container = Utils.$('productImagePreviewContainer');
+        this.tempProductImage = null;
+        if (container) {
+            container.innerHTML = '<span style="font-size: 24px;">📷</span>';
+        }
+        if (clearInput) {
+            const input = Utils.$('productImageInput');
+            if (input) input.value = '';
+        }
+    }
+
+    /**
+     * Re-crop existing temporary image
+     */
+    reCropImage() {
+        if (this.tempProductImage) {
+            this.showCropModal(this.tempProductImage);
+        }
+    }
+
+    /**
+     * Show Crop Modal
+     * @param {string} imageUrl 
+     */
+    showCropModal(imageUrl) {
+        const modal = Utils.$('cropModal');
+        const img = Utils.$('imageToCrop');
+
+        if (modal && img) {
+            img.src = imageUrl;
+            modal.style.display = 'flex';
+
+            // Init Cropper
+            // Check if Cropper is loaded
+            if (typeof Cropper !== 'undefined') {
+                if (this.cropper) {
+                    this.cropper.destroy();
+                }
+                this.cropper = new Cropper(img, {
+                    aspectRatio: 1,
+                    viewMode: 1,
+                    autoCropArea: 0.8,
+                });
+            } else {
+                console.error('Cropper.js library not loaded!');
+                alert('Gagal memuat editor gambar. Pastikan internet aktif untuk memuat library Cropper.js.');
+                this.closeCropModal();
+            }
+        }
+    }
+
+    /**
+     * Save cropped image
+     */
+    saveCrop() {
+        if (this.cropper) {
+            // Get cropped canvas
+            try {
+                const canvas = this.cropper.getCroppedCanvas({
+                    width: 500, // Optimize size
+                    height: 500,
+                    fillColor: '#fff'
+                });
+
+                if (!canvas) {
+                    Utils.notify('Gagal memproses gambar.', 'error');
+                    return;
+                }
+
+                // Convert to base64
+                const croppedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+
+                // Update Preview and Set state
+                this.updateImagePreview(croppedBase64);
+
+                // Notify
+                Utils.notify('Gambar berhasil dipotong! ✂️', 'success');
+
+                // Close WITHOUT clearing input (keep flow valid)
+                const modal = Utils.$('cropModal');
+                if (modal) modal.style.display = 'none';
+
+                // Cleanup cropper but keep file input as is
+                if (this.cropper) {
+                    this.cropper.destroy();
+                    this.cropper = null;
+                }
+            } catch (e) {
+                console.error(e);
+                Utils.notify('Terjadi kesalahan saat memotong gambar.', 'error');
+            }
+        }
+    }
+
+    /**
+     * Close crop modal
+     */
+    closeCropModal() {
+        const modal = Utils.$('cropModal');
+        // Reset file input if exists
+        this.resetImagePreview(true);
+        if (modal) modal.style.display = 'none';
+
+        if (this.cropper) {
+            this.cropper.destroy();
+            this.cropper = null;
+        }
+    }
+
+    /**
+     * Render Customer Orders in Modal (Seller View)
+     */
+    renderCustomerOrdersModal(customer, orders, sellerId) {
+        const list = Utils.$('customerOrdersList');
+        const title = Utils.$('customerOrdersTitle');
+        const modal = Utils.$('customerOrdersModal');
+
+        if (title) title.textContent = `📦 Riwayat Pesanan: ${customer.name}`;
+
+        if (!list) return;
+
+        if (orders.length === 0) {
+            list.innerHTML = this.renderEmptyState('📭', 'Belum ada pesanan dari customer ini.');
+        } else {
+            list.innerHTML = orders.map(order => {
+                // Filter items to show only those from THIS seller
+                // Filter items to show only those from THIS seller
+                const myItems = order.items.filter(i => i.sellerId === sellerId);
+                const hasPending = myItems.some(i => (i.status || order.status || 'pending') === 'pending');
+
+                // Show global status just for info
+                let statusBadge = '';
+                if (order.status === 'success') statusBadge = '<span class="product-badge badge-success" style="background: #10b981; position: static;">Selesai</span>';
+                else if (order.status === 'cancelled') statusBadge = '<span class="product-badge badge-error" style="background: #ef4444; position: static;">Dibatalkan User</span>';
+                else statusBadge = '<span class="product-badge" style="background: #f3f4f6; color: #6b7280; position: static;">' + (order.status === 'pending' ? 'Pending' : order.status) + '</span>';
+
+                return `
+                <div class="order-card" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #f3f4f6; padding-bottom: 8px;">
+                        <div>
+                            <span style="font-weight: 600;">${order.id}</span>
+                            <span style="color: #6b7280; font-size: 12px; margin-left: 8px;">${new Date(order.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        ${statusBadge}
+                    </div>
+                    
+                    <div style="margin-bottom: 12px;">
+                        ${myItems.map(i => {
+                    const iStatus = i.status || order.status || 'pending';
+                    let iBadge = '';
+                    if (iStatus === 'cancelled') iBadge = '<span style="font-size:10px; color:#ef4444; background:#fef2f2; padding:2px 6px; border-radius:4px;">Dibatalkan Customer</span>';
+                    else if (iStatus === 'rejected') iBadge = '<span style="font-size:10px; color:#6b7280; background:#f3f4f6; padding:2px 6px; border-radius:4px;">Ditolak</span>';
+                    else if (iStatus === 'pending') iBadge = '<span style="font-size:10px; color:#f59e0b; background:#fffbeb; padding:2px 6px; border-radius:4px;">Pending</span>';
+
+                    return `
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                <div style="display: flex; align-items: center;">
+                                    <div style="width: 40px; height: 40px; border-radius: 4px; background-image: url('${i.image || ''}'); background-size: cover; margin-right: 8px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center;">${i.image ? '' : (i.icon || '📦')}</div>
+                                    <div>
+                                        <div style="font-weight: 500; font-size: 13px;">${i.productName}</div>
+                                        <div style="font-size: 12px; color: #6b7280;">${i.quantity} x ${Utils.formatPrice(i.price)}</div>
+                                    </div>
+                                </div>
+                                <div>${iBadge}</div>
+                            </div>
+                        `}).join('')}
+                    </div>
+
+                    ${hasPending ? `
+                    <div style="text-align: right; border-top: 1px solid #f3f4f6; padding-top: 12px;">
+                        <button class="btn-small btn-delete" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px;" onclick="app.rejectOrder('${order.id}')">
+                            ⛔ Tolak Order
+                        </button>
+                    </div>
+                    ` : ''}
+                </div>
+                `;
+            }).join('');
+        }
+
+        if (modal) modal.style.display = 'flex';
+    }
+
+    closeCustomerOrdersModal() {
+        const modal = Utils.$('customerOrdersModal');
+        if (modal) modal.style.display = 'none';
     }
 
     // ==========================================

@@ -44,8 +44,11 @@ function renderOrderSummary() {
         const { product, quantity } = item;
         return `
             <div class="checkout-item">
-                <div style="font-size: 24px;">${product.icon}</div>
+                <div style="width: 50px; height: 50px; border-radius: 8px; background: #f3f4f6; margin-right: 12px; background-image: url('${product.image || ''}'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 24px;">
+                    ${product.image ? '' : product.icon}
+                </div>
                 <div style="flex: 1;">
+                    <div style="font-size: 10px; color: #6b7280; font-weight: 500; margin-bottom: 2px;">🏪 ${Utils.sanitizeHTML(product.sellerName || 'Toko Resmi')}</div>
                     <div style="font-weight: 600; font-size: 14px;">${Utils.sanitizeHTML(product.name)}</div>
                     <div style="font-size: 12px; color: var(--text-gray);">${quantity} x ${Utils.formatPrice(product.price)}</div>
                 </div>
