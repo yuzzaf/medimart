@@ -143,8 +143,11 @@
                 </div>
             </div>
 
-            <div class="section-header">
+            <div class="section-header" style="justify-content: space-between; align-items: center;">
                 <h2 class="section-title">Riwayat Transaksi</h2>
+                <input type="text" id="custSearchInput" placeholder="Cari ID pesanan atau nama produk..."
+                    style="padding: 10px; border: 1px solid #ddd; border-radius: 8px; width: 280px;"
+                    onkeyup="app.searchCustomerOrders()">
             </div>
 
             <div class="table-container"

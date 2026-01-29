@@ -198,7 +198,7 @@ class UI {
         if (greeting) greeting.textContent = `Halo, ${user.name}! 👋`;
 
         // Get Stats
-        const orders = this.db.getUserOrders();
+        let orders = this.db.getUserOrders();
         const activeOrders = orders.filter(o => o.status === 'success').length;
         const totalSpent = orders
             .filter(o => o.status !== 'cancelled')
