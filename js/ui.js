@@ -458,7 +458,7 @@ class UI {
                                         ${u.role.toUpperCase()}
                                     </span>
                                 </td>
-                                </td>
+
                                 <td style="padding: 12px;">${new Date(u.createdAt).toLocaleDateString()}</td>
                                 <td style="padding: 12px;">
                                     <button class="btn-small btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="app.showCustomerOrders(${u.id})">
@@ -508,11 +508,13 @@ class UI {
 
     _renderOrderRow(order) {
         let statusBadge = '';
+        if (order.status === 'success') statusBadge = '<span class="product-badge badge-success" style="background: #10b981; position: static;">Sukses</span>';
+        else if (order.status === 'cancelled') statusBadge = '<span class="product-badge badge-error" style="background: #ef4444; position: static;">Dibatalkan</span>';
+        else if (order.status === 'rejected') statusBadge = '<span class="product-badge badge-error" style="background: #6b7280; position: static;">Ditolak</span>';
         if (order.status === 'success') statusBadge = '<span class="product-badge badge-success" style="background: #10b981; position: static;">Selesai</span>';
         else if (order.status === 'cancelled') statusBadge = '<span class="product-badge badge-error" style="background: #ef4444; position: static;">Dibatalkan</span>';
         else if (order.status === 'rejected') statusBadge = '<span class="product-badge badge-error" style="background: #6b7280; position: static;">Ditolak</span>';
-        else if (order.status === 'mixed') statusBadge = '<span class="product-badge" style="background: #8b5cf6; position: static;">Beragam</span>';
-        else statusBadge = '<span class="product-badge" style="background: #f59e0b; position: static;">Pending</span>';
+        else statusBadge = '<span class="product-badge" style="background: #f59e0b; position: static;">Pending</span>'; // Pending or Mixed treated as Processing
 
         const date = new Date(order.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -520,53 +522,204 @@ class UI {
             <tr style="border-bottom: 1px solid var(--border);">
                 <td style="padding: 16px; font-weight: 600;">${order.id}</td>
                 <td style="padding: 16px; color: var(--text-gray); font-size: 14px;">${date}</td>
-                <td style="padding: 16px;">
-                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                
+                <!-- Items Column -->
+                <td style="padding: 16px; vertical-align: middle;">
+                    <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
                         ${order.items.map(i => {
             const iStatus = i.status || order.status || 'pending';
-            let iBadge = '';
-            if (iStatus === 'cancelled') iBadge = '<span style="font-size:10px; color:#ef4444; background:#fef2f2; padding:2px 6px; border-radius:4px;">Dibatalkan</span>';
-            else if (iStatus === 'rejected') iBadge = '<span style="font-size:10px; color:#6b7280; background:#f3f4f6; padding:2px 6px; border-radius:4px;">Ditolak Toko</span>';
+            let opacity = (iStatus === 'cancelled' || iStatus === 'rejected') ? '0.6' : '1';
+            return `<li style="margin-bottom: 6px; height: 20px; opacity: ${opacity}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                - ${i.productName} (x${i.quantity})
+                            </li>`;
+        }).join('')}
+                    </ul>
 
-            // Action only if pending
-            let iAction = '';
-            if (iStatus === 'pending') {
-                iAction = `<button onclick="app.cancelOrderItem('${order.id}', ${i.productId})" title="Batalkan Item Ini" class="btn-small btn-delete" style="padding: 4px 8px; font-size: 10px; min-width: 60px;">Batal</button>`;
+                </td>
+
+                <!-- Harga Item Column -->
+                <td style="padding: 16px; vertical-align: middle;">
+                    <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
+                        ${order.items.map(i => {
+            const iStatus = i.status || order.status || 'pending';
+            let opacity = (iStatus === 'cancelled' || iStatus === 'rejected') ? '0.6' : '1';
+            // Show Unit Price * Qty = Subtotal for that item
+            return `<li style="margin-bottom: 6px; height: 20px; opacity: ${opacity}; color: #4b5563; font-family: monospace;">
+                                ${Utils.formatPrice(i.price * i.quantity)}
+                            </li>`;
+        }).join('')}
+                    </ul>
+                </td>
+
+                <!-- Aksi Items Column (Per Item Cancel Only) -->
+                <td style="padding: 16px; vertical-align: middle;">
+                    <!-- Per item actions below -->
+                    <ul style="list-style: none; padding: 0; margin: 0; font-size: 11px;">
+                        ${order.items.map(i => {
+            const iStatus = i.status || order.status || 'pending';
+            let action = '&nbsp;'; // Spacer for alignment if no button
+
+            if (iStatus === 'cancelled' || iStatus === 'rejected') {
+                action = `<span style="color: #6b7280; font-size: 10px;">${iStatus === 'rejected' ? 'Ditolak' : 'Batal'}</span>`;
+            } else if (iStatus === 'pending' || iStatus === 'success') {
+                action = `<button onclick="app.cancelOrderItem('${order.id}', ${i.productId})" style="background: #fee2e2; color: #ef4444; border: none; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 600;">🚫 Batal Item</button>`;
             }
 
-            return `
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #f3f4f6;">
-                                <div style="display: flex; align-items: center;">
-                                    <div style="width: 40px; height: 40px; border-radius: 6px; background: #f3f4f6; margin-right: 10px; flex-shrink: 0; background-image: url('${i.image || ''}'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #9ca3af; overflow: hidden;">
-                                        ${i.image ? '' : (i.icon || '📦')}
-                                    </div>
-                                    <div>
-                                         <div style="font-size: 10px; color: #6b7280; margin-bottom: 2px;">🏪 ${i.sellerName || 'Toko Resmi'}</div>
-                                         <div style="font-size: 13px; font-weight: 500; line-height: 1.2;">
-                                            ${i.productName} 
-                                            <span style="color: #6b7280; font-size: 12px;">(x${i.quantity})</span>
-                                         </div>
-                                    </div>
-                                </div>
-                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 80px;">
-                                    ${iBadge}
-                                    ${iAction}
-                                </div>
-                            </div>
-                        `}).join('')}
-                    </div>
+            return `<li style="margin-bottom: 6px; height: 20px; display: flex; align-items: center; justify-content: flex-start;">${action}</li>`;
+        }).join('')}
+                    </ul>
                 </td>
+
                 <td style="padding: 16px; font-weight: 600;">${Utils.formatPrice(order.total)}</td>
                 <td style="padding: 16px;">${statusBadge}</td>
+                
+                <!-- Aksi Invoice Column -->
                 <td style="padding: 16px;">
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn-small" style="padding: 6px 12px; background: #9ca3af; color: white; border: none; border-radius: 8px; cursor: pointer;" onclick="app.deleteOrder('${order.id}')" title="Hapus Riwayat">
-                            🗑️
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                         ${(order.status === 'pending' || order.status === 'mixed' || order.status === 'success') ?
+                `<button class="btn-small btn-delete" style="padding: 6px 12px; font-size: 11px;" onclick="app.cancelOrder('${order.id}')" title="Batalkan Seluruh Invoice">
+                             🚫 Batal Semua
+                         </button>` : ''}
+                        <button class="btn-small" style="padding: 6px 12px; background: #9ca3af; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 11px;" onclick="app.deleteOrder('${order.id}')" title="Hapus Riwayat">
+                            🗑️ Hapus
+                        </button>
+                        <button class="btn-small" style="padding: 6px 12px; background: white; border: 1px solid var(--primary); color: var(--primary); border-radius: 8px; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 4px; justify-content: center; position: relative; z-index: 1;" onclick="app.showOrderDetail('${order.id}')">
+                            📄 Rincian Invoice
                         </button>
                     </div>
                 </td>
             </tr>
             `;
+    }
+
+    /**
+     * Render Order Detail Modal
+     */
+    renderOrderDetailModal(order) {
+        const modal = document.getElementById('orderDetailModal');
+        if (!modal) return;
+
+        // Header Info
+        document.getElementById('odOrderId').textContent = order.id;
+        // Date Formatting
+        const dateObj = new Date(order.createdAt);
+        const dateStr = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        // Use simpler time formatting to avoid unwanted text
+        const hours = dateObj.getHours().toString().padStart(2, '0');
+        const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+        document.getElementById('odDate').textContent = `${dateStr}, ${hours}.${minutes} WIB`;
+
+        let statusBadge = '';
+        if (order.status === 'success') statusBadge = '<span class="product-badge badge-success" style="background: #10b981;">Sukses</span>';
+        else if (order.status === 'cancelled') statusBadge = '<span class="product-badge badge-error" style="background: #ef4444;">Dibatalkan</span>';
+        else if (order.status === 'rejected') statusBadge = '<span class="product-badge badge-error" style="background: #6b7280;">Ditolak</span>';
+        else if (order.status === 'mixed') statusBadge = '<span class="product-badge" style="background: #8b5cf6;">Beragam</span>';
+        else statusBadge = '<span class="product-badge" style="background: #f59e0b;">Pending</span>';
+        document.getElementById('orderDetailStatusBadge').innerHTML = statusBadge;
+
+        // Shipping Info
+        const shipping = order.shipping || {};
+        document.getElementById('odRecipient').textContent = shipping.name || '-';
+        document.getElementById('odPhone').textContent = shipping.phone || '-';
+        document.getElementById('odAddress').textContent = shipping.address || '-';
+
+        // Payment Info
+        document.getElementById('odPaymentMethod').textContent = order.payment || 'Transfer Bank';
+        let pStatusText = 'Lunas';
+        let pStatusColor = '#10b981'; // Green by default
+
+        if (order.status === 'cancelled') {
+            pStatusText = 'Dana Dikembalikan';
+            pStatusColor = '#ef4444';
+        } else if (order.status === 'rejected') {
+            pStatusText = 'Dana Dikembalikan';
+            pStatusColor = '#6b7280';
+        }
+
+        const pStatusEl = document.getElementById('odPaymentStatus');
+        pStatusEl.textContent = pStatusText;
+        pStatusEl.style.color = pStatusColor;
+        pStatusEl.style.fontWeight = '600';
+
+        // Items Table
+        const tbody = document.getElementById('odItemsBody');
+        tbody.innerHTML = order.items.map(item => {
+            const iStatus = item.status || order.status || 'pending';
+            let iBadge = '';
+            if (iStatus === 'cancelled') iBadge = '<span style="font-size:11px; color:#ef4444; background:#fef2f2; padding:2px 8px; border-radius:4px; font-weight:600;">Dibatalkan</span>';
+            else if (iStatus === 'rejected') iBadge = '<span style="font-size:11px; color:#6b7280; background:#f3f4f6; padding:2px 8px; border-radius:4px; font-weight:600;">Ditolak Toko</span>';
+            else if (iStatus === 'pending') iBadge = '<span style="font-size:11px; color:#f59e0b; background:#fffbeb; padding:2px 8px; border-radius:4px; font-weight:600;">Pending</span>';
+
+            // Action Button Logic
+            let actionBtn = '-';
+            // Only show cancel if pending/success/mixed
+            if (iStatus === 'pending' || iStatus === 'success' || iStatus === 'mixed') {
+                actionBtn = `<button
+        onclick="app.cancelOrderItem('${order.id}', ${item.productId})"
+        style="padding: 4px 10px; font-size: 11px; background: #fee2e2; color: #ef4444; border: 1px solid #fecaca; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                    🚫 Batal Item
+                </button>`;
+            }
+
+            return `
+            <tr style="border-bottom: 1px solid #f3f4f6;">
+                    <td style="padding: 12px 16px;">
+                        <div style="display: flex; align-items: center;">
+                            <div style="width: 40px; height: 40px; border-radius: 6px; background: #f3f4f6; margin-right: 12px; background-image: url('${item.image || ''}'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 20px;">
+                                ${item.image ? '' : (item.icon || '📦')}
+                            </div>
+                            <div>
+                                <div style="font-weight: 500; font-size: 14px;">${item.productName}</div>
+                                <div style="font-size: 11px; color: #6b7280;">${item.sellerName || 'Toko Resmi'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="padding: 12px 16px; text-align: right; font-family: monospace; font-size: 13px;">${Utils.formatPrice(item.price)}</td>
+                    <td style="padding: 12px 16px; text-align: center;">${item.quantity}</td>
+                    <td style="padding: 12px 16px; text-align: right; font-weight: 600; font-family: monospace; font-size: 13px;">${Utils.formatPrice(item.price * item.quantity)}</td>
+                    <td style="padding: 12px 16px; text-align: center;">${iBadge}</td>
+                    <td style="padding: 12px 16px; text-align: center;">${actionBtn}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // footer
+        const subtotal = order.subtotal || order.total;
+        const discount = order.discount || 0;
+
+        document.getElementById('odSubtotal').textContent = Utils.formatPrice(subtotal);
+
+        const discRow = document.getElementById('odDiscountRow');
+        if (discount > 0) {
+            discRow.style.display = 'flex';
+            document.getElementById('odPromoCode').textContent = order.promoCode ? `(${order.promoCode})` : '';
+            document.getElementById('odDiscount').textContent = '- ' + Utils.formatPrice(discount);
+        } else {
+            discRow.style.display = 'none';
+        }
+
+        document.getElementById('odTotal').textContent = Utils.formatPrice(order.total);
+
+        // Global Cancel Button (at bottom)
+        const globalActions = document.getElementById('odGlobalCancelContainer');
+        if (order.status === 'pending' || order.status === 'mixed' || order.status === 'success') {
+            globalActions.innerHTML = `
+            <button onclick="app.cancelOrder('${order.id}')" style="background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
+                    🚫 Batalkan Seluruh Pesanan
+                </button>
+            `;
+        } else {
+            globalActions.innerHTML = '';
+        }
+
+        modal.style.display = 'block'; // Or flex, but try block/flex explicitly
+        modal.style.display = 'flex';
+        modal.style.zIndex = '9999';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
     }
 
     /**
@@ -621,7 +774,7 @@ class UI {
                 // Customer / Guest
                 actions = `
             <button class="btn-small btn-cart"
-        onclick = "app.addToCart(${product.id})"
+        onclick="app.addToCart(${product.id})"
                             ${isOutOfStock ? 'disabled' : ''}>
                         🛒 ${isOutOfStock ? 'Habis' : 'Tambah'}
                     </button>
@@ -663,10 +816,10 @@ class UI {
      */
     renderEmptyState(icon, text) {
         return `
-            <div class="empty-state">
+            < div class="empty-state" >
                 <div class="empty-state-icon">${icon}</div>
                 <div class="empty-state-text">${Utils.sanitizeHTML(text)}</div>
-            </div>
+            </div >
             `;
     }
 
@@ -788,14 +941,14 @@ class UI {
         if (container) {
             this.tempProductImage = base64;
             container.innerHTML = `
-                <div style="position: relative; width: 100%; height: 100%; group">
-                    <img src="${base64}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+            < div style = "position: relative; width: 100%; height: 100%; group" >
+                <img src="${base64}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
                     <div style="position: absolute; bottom: 8px; right: 8px; display: flex; gap: 8px;">
-                         <button type="button" onclick="app.reCropImage()" title="Crop Ulang" style="background: white; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">✂️</button>
-                         <button type="button" onclick="app.removeImage()" title="Hapus Gambar" style="background: white; border: 1px solid #ef4444; color: #ef4444; border-radius: 4px; padding: 4px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🗑️</button>
+                        <button type="button" onclick="app.reCropImage()" title="Crop Ulang" style="background: white; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">✂️</button>
+                        <button type="button" onclick="app.removeImage()" title="Hapus Gambar" style="background: white; border: 1px solid #ef4444; color: #ef4444; border-radius: 4px; padding: 4px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🗑️</button>
                     </div>
                 </div>
-            `;
+        `;
         }
     }
 
@@ -920,7 +1073,7 @@ class UI {
         const title = Utils.$('customerOrdersTitle');
         const modal = Utils.$('customerOrdersModal');
 
-        if (title) title.textContent = `📦 Riwayat Pesanan: ${customer.name}`;
+        if (title) title.textContent = `📦 Riwayat Pesanan: ${customer.name} `;
 
         if (!list) return;
 
@@ -931,22 +1084,45 @@ class UI {
                 // Filter items to show only those from THIS seller
                 // Filter items to show only those from THIS seller
                 const myItems = order.items.filter(i => i.sellerId === sellerId);
-                const hasPending = myItems.some(i => (i.status || order.status || 'pending') === 'pending');
+                const hasPending = myItems.some(i => {
+                    const status = i.status || order.status || 'pending';
+                    return status === 'pending' || status === 'success';
+                });
 
                 // Show global status just for info
                 let statusBadge = '';
-                if (order.status === 'success') statusBadge = '<span class="product-badge badge-success" style="background: #10b981; position: static;">Selesai</span>';
+                if (order.status === 'success') statusBadge = '<span class="product-badge badge-success" style="background: #10b981; position: static;">Sukses</span>';
                 else if (order.status === 'cancelled') statusBadge = '<span class="product-badge badge-error" style="background: #ef4444; position: static;">Dibatalkan User</span>';
                 else statusBadge = '<span class="product-badge" style="background: #f3f4f6; color: #6b7280; position: static;">' + (order.status === 'pending' ? 'Pending' : order.status) + '</span>';
 
+                // Calculate Seller Total
+                const sellerTotal = myItems.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+                const shipping = order.shipping || {};
+                const paymentMethod = order.payment || 'Transfer Bank';
+
                 return `
-                <div class="order-card" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                    <div class="order-card" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 16px; background: white;">
+                    <!-- Header: ID, Date, Status -->
                     <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #f3f4f6; padding-bottom: 8px;">
                         <div>
                             <span style="font-weight: 600;">${order.id}</span>
-                            <span style="color: #6b7280; font-size: 12px; margin-left: 8px;">${new Date(order.createdAt).toLocaleDateString()}</span>
+                            <span style="color: #6b7280; font-size: 12px; margin-left: 8px;">${new Date(order.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} WIB</span>
                         </div>
                         ${statusBadge}
+                    </div>
+
+                    <!-- Shipping & Payment Info (New Section) -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; background: #f9fafb; padding: 12px; border-radius: 8px; font-size: 12px;">
+                        <div>
+                            <div style="color: #6b7280; margin-bottom: 4px; font-weight: 600;">ALAMAT PENGIRIMAN</div>
+                            <div style="font-weight: 500;">${shipping.name || '-'} (${shipping.phone || '-'})</div>
+                            <div style="color: #4b5563;">${shipping.address || '-'}</div>
+                        </div>
+                        <div>
+                            <div style="color: #6b7280; margin-bottom: 4px; font-weight: 600;">METODE PEMBAYARAN</div>
+                            <div style="font-weight: 500;">${paymentMethod}</div>
+                            <div style="color: #10b981; font-weight: 500;">${(order.status === 'success' || order.status === 'pending') ? 'Sudah Dibayar' : '-'}</div>
+                        </div>
                     </div>
                     
                     <div style="margin-bottom: 12px;">
@@ -957,6 +1133,21 @@ class UI {
                     else if (iStatus === 'rejected') iBadge = '<span style="font-size:10px; color:#6b7280; background:#f3f4f6; padding:2px 6px; border-radius:4px;">Ditolak</span>';
                     else if (iStatus === 'pending') iBadge = '<span style="font-size:10px; color:#f59e0b; background:#fffbeb; padding:2px 6px; border-radius:4px;">Pending</span>';
 
+                    // Per-item Actions
+                    let pendingAction = '';
+                    if (iStatus === 'pending') {
+                        pendingAction = `
+                            <button class="btn-small" style="padding: 2px 8px; font-size: 10px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;" onclick = "app.acceptOrderItem('${order.id}', ${i.productId})">
+                                ✅ Terima
+                            </button>
+                            <button class="btn-small btn-delete" style="padding: 2px 8px; font-size: 10px; margin-left:4px;" onclick="app.rejectOrderItem('${order.id}', ${i.productId})">
+                                ⛔ Tolak
+                            </button>
+                         `;
+                    } else if (iStatus === 'success') {
+                        pendingAction = `<span style="font-size:10px; color:#15803d; font-weight:600;">✅ Diterima</span>`;
+                    }
+
                     return `
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                                 <div style="display: flex; align-items: center;">
@@ -966,20 +1157,35 @@ class UI {
                                         <div style="font-size: 12px; color: #6b7280;">${i.quantity} x ${Utils.formatPrice(i.price)}</div>
                                     </div>
                                 </div>
-                                <div>${iBadge}</div>
+                                <div>
+                                    ${iBadge}
+                                    <div style="display: flex; gap: 4px; margin-top: 4px;">
+                                        ${pendingAction}
+                                    </div>
+                                </div>
                             </div>
-                        `}).join('')}
+                        `;
+                }).join('')}
                     </div>
 
-                    ${hasPending ? `
-                    <div style="text-align: right; border-top: 1px solid #f3f4f6; padding-top: 12px;">
-                        <button class="btn-small btn-delete" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px;" onclick="app.rejectOrder('${order.id}')">
-                            ⛔ Tolak Order
-                        </button>
+                    <!-- Financial Summary for Seller -->
+                    <div style="display: flex; justify-content: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #d1d5db; align-items: center; gap: 8px;">
+                        <span style="color: #6b7280; font-size: 13px;">Total Pendapatan:</span>
+                        <span style="font-weight: 700; font-size: 15px; color: var(--primary);">${Utils.formatPrice(sellerTotal)}</span>
                     </div>
-                    ` : ''}
-                </div>
-                `;
+
+            <div style="text-align: right; border-top: 1px solid #f3f4f6; padding-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
+                ${hasPending ? `
+                             <button class="btn-small" style="padding: 6px 12px; font-size: 11px; background: #fee2e2; color: #ef4444; border: 1px solid #fecaca;" onclick="app.rejectOrder('${order.id}')">
+                                ⛔ Tolak Semua
+                             </button>
+                             <button class="btn-small" style="padding: 6px 12px; font-size: 11px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;" onclick="app.acceptOrder('${order.id}')">
+                                ✅ Terima Semua
+                             </button>
+                          ` : ''}
+            </div>
+                </div >
+                    `;
             }).join('');
         }
 

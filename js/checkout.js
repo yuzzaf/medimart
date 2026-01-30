@@ -60,8 +60,38 @@ function renderOrderSummary() {
     }).join('');
 
     const total = db.getCartTotal();
-    if (subtotalEl) subtotalEl.textContent = Utils.formatPrice(total);
-    if (totalEl) totalEl.textContent = Utils.formatPrice(total);
+
+    // Check for stored promo
+    const storedPromo = sessionStorage.getItem('medimart_promo');
+    if (storedPromo && subtotalEl && totalEl) {
+        const promo = JSON.parse(storedPromo);
+        let discount = 0;
+
+        if (promo.discount < 1) {
+            discount = total * promo.discount;
+        } else {
+            discount = promo.discount;
+        }
+
+        // Add Discount Row if not exists (hacky but works for vanilla)
+        let discountRow = document.getElementById('discountRow');
+        if (!discountRow) {
+            discountRow = document.createElement('div');
+            discountRow.id = 'discountRow';
+            discountRow.className = 'summary-row';
+            discountRow.innerHTML = `<span>Diskon (${promo.code})</span><span class="text-success" id="discountValue"></span>`;
+            // Insert before total
+            totalEl.parentElement.before(discountRow);
+        }
+
+        document.getElementById('discountValue').textContent = '- ' + Utils.formatPrice(discount);
+
+        subtotalEl.textContent = Utils.formatPrice(total);
+        totalEl.textContent = Utils.formatPrice(total - discount);
+    } else {
+        if (subtotalEl) subtotalEl.textContent = Utils.formatPrice(total);
+        if (totalEl) totalEl.textContent = Utils.formatPrice(total);
+    }
 }
 
 function processCheckout() {
@@ -82,10 +112,28 @@ function processCheckout() {
     btn.disabled = true;
     btn.innerHTML = '<span class="loader"></span> Memproses...';
 
+    // Utils.notify('Sedang memproses pembayaran...', 'info'); // Removed as requested
+
+    const shippingInfo = {
+        name,
+        phone,
+        address
+    };
+
+    // Get Payment Method
+    const activePayment = document.querySelector('.payment-option.selected h4');
+    const paymentMethod = activePayment ? activePayment.textContent : 'Transfer Bank';
+
+    // Get Promo
+    const storedPromo = sessionStorage.getItem('medimart_promo');
+    const promo = storedPromo ? JSON.parse(storedPromo) : null;
+
     setTimeout(() => {
-        const result = db.checkout();
+        const result = db.checkout(shippingInfo, paymentMethod, promo);
 
         if (result.success) {
+            // Clear promo
+            sessionStorage.removeItem('medimart_promo');
             showSuccessModal(result);
         } else {
             alert(result.message || 'Checkout gagal.');
