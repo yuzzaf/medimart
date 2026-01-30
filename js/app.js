@@ -249,7 +249,7 @@ class App {
      * @param {string} orderId 
      */
     cancelOrder(orderId) {
-        if (!Utils.confirm('Yakin ingin membatalkan pesanan ini? Stok akan dikembalikan.')) return;
+        if (!Utils.confirm('Yakin ingin membatalkan seluruh pesanan ini? Stok akan dikembalikan.')) return;
 
         if (this.db.cancelOrder(orderId)) {
             Utils.notify('Pesanan berhasil dibatalkan');
@@ -415,13 +415,73 @@ class App {
     }
 
     /**
-     * Reject Order Items (Seller Action)
+     * Accept Order Item (Seller Granular Action)
+     */
+    acceptOrderItem(orderId, productId) {
+        const currentUser = this.db.getCurrentUser();
+        if (!currentUser) return;
+
+        if (confirm('Terima pesanan produk ini?')) {
+            if (this.db.acceptSellerItem(orderId, productId, currentUser.id)) {
+                Utils.notify('Produk diterima & diproses. ✅', 'success');
+                // Refresh Modal
+                if (this.currentViewCustomerId) {
+                    this.showCustomerOrders(this.currentViewCustomerId);
+                }
+            } else {
+                Utils.notify('Gagal menerima produk.', 'error');
+            }
+        }
+    }
+
+    /**
+     * Reject Order Item (Seller Granular Action)
+     */
+    rejectOrderItem(orderId, productId) {
+        const currentUser = this.db.getCurrentUser();
+        if (!currentUser) return;
+
+        if (confirm('Tolak produk ini? Stok akan dikembalikan.')) {
+            if (this.db.rejectSellerItem(orderId, productId, currentUser.id)) {
+                Utils.notify('Produk berhasil ditolak.', 'success');
+                // Refresh Modal
+                if (this.currentViewCustomerId) {
+                    this.showCustomerOrders(this.currentViewCustomerId);
+                }
+            } else {
+                Utils.notify('Gagal menolak produk.', 'error');
+            }
+        }
+    }
+
+    /**
+     * Accept All Seller Order Items (Seller Bulk Action)
+     */
+    acceptOrder(orderId) {
+        const currentUser = this.db.getCurrentUser();
+        if (!currentUser) return;
+
+        if (confirm('Terima semua produk dalam pesanan ini?')) {
+            if (this.db.acceptSellerItems(orderId, currentUser.id)) {
+                Utils.notify('Pesanan diterima & diproses. ✅', 'success');
+                // Refresh Modal
+                if (this.currentViewCustomerId) {
+                    this.showCustomerOrders(this.currentViewCustomerId);
+                }
+            } else {
+                Utils.notify('Gagal menerima pesanan.', 'error');
+            }
+        }
+    }
+
+    /**
+     * Reject All Seller Order Items (Seller Bulk Action)
      */
     rejectOrder(orderId) {
         const currentUser = this.db.getCurrentUser();
         if (!currentUser) return;
 
-        if (confirm('Tolak produk-produk dari toko Anda dalam pesanan ini? Stok akan dikembalikan.')) {
+        if (confirm('Tolak semua produk dari toko Anda dalam pesanan ini? Stok akan dikembalikan.')) {
             if (this.db.rejectSellerItems(orderId, currentUser.id)) {
                 Utils.notify('Produk berhasil ditolak.', 'success');
                 // Refresh Modal
@@ -429,7 +489,7 @@ class App {
                     this.showCustomerOrders(this.currentViewCustomerId);
                 }
             } else {
-                Utils.notify('Gagal menolak pesanan atau status sudah final.', 'error');
+                Utils.notify('Gagal menolak pesanan.', 'error');
             }
         }
     }
@@ -443,6 +503,12 @@ class App {
                 Utils.notify('Item dibatalkan.', 'success');
                 // Reload Dashboard View (no page reload)
                 this.ui.renderDashboard();
+
+                // If detail modal is open, refresh it too
+                if (this.currentOrderDetailId === orderId) {
+                    const order = this.db.orders.find(o => o.id === orderId);
+                    this.ui.renderOrderDetailModal(order);
+                }
             } else {
                 Utils.notify('Gagal membatalkan item.', 'error');
             }
@@ -455,6 +521,35 @@ class App {
     closeCustomerOrdersModal() {
         this.currentViewCustomerId = null;
         this.ui.closeCustomerOrdersModal();
+    }
+
+    /**
+     * Show Order Detail Modal (Customer)
+     */
+    showOrderDetail(orderId) {
+        console.log('Opening order detail for:', orderId);
+        // Use loose equality to match string vs number IDs
+        const order = this.db.orders.find(o => o.id == orderId);
+        if (order) {
+            this.currentOrderDetailId = orderId;
+            this.ui.renderOrderDetailModal(order);
+        } else {
+            console.error('Order not found:', orderId);
+        }
+    }
+
+    /**
+     * Close Order Detail Modal
+     */
+    closeOrderDetailModal() {
+        const modal = document.getElementById('orderDetailModal');
+        if (modal) modal.style.display = 'none';
+
+        // Refresh dashboard incase changes were made inside modal
+        if (this.currentOrderDetailId) {
+            this.ui.renderDashboard();
+            this.currentOrderDetailId = null;
+        }
     }
 }
 
@@ -469,9 +564,11 @@ let app;
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         app = new App();
+        window.app = app;
     });
 } else {
     app = new App();
+    window.app = app;
 }
 
 // Log app info

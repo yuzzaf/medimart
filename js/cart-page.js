@@ -284,6 +284,26 @@ function updateSummary() {
     if (btnCheckout) {
         btnCheckout.disabled = cart.length === 0;
     }
+
+    // Check for stored promo
+    const storedPromo = sessionStorage.getItem('medimart_promo');
+    if (storedPromo && discountEl && totalEl) {
+        const promo = JSON.parse(storedPromo);
+        let discountAmount = 0;
+        if (promo.discount < 1) { // Percentage
+            discountAmount = subtotal * promo.discount;
+        } else { // Fixed amount
+            discountAmount = promo.discount;
+        }
+
+        discount = discountAmount;
+        discountEl.textContent = '- ' + Utils.formatPrice(discount);
+        totalEl.textContent = Utils.formatPrice(subtotal - discount + shipping);
+
+        // Update input if exists
+        const promoInput = document.getElementById('promoCode');
+        if (promoInput) promoInput.value = promo.code;
+    }
 }
 
 /**
@@ -306,10 +326,17 @@ function applyPromo() {
     };
 
     if (promoCodes[code]) {
+        const promoData = {
+            code: code,
+            ...promoCodes[code]
+        };
+        sessionStorage.setItem('medimart_promo', JSON.stringify(promoData));
         Utils.notify(`Kode promo berhasil dipakai! ${promoCodes[code].message} 🎉`, 'success');
-        promoInput.value = '';
+        updateSummary(); // Recalculate
     } else {
         Utils.notify('Kode promo tidak valid', 'error');
+        sessionStorage.removeItem('medimart_promo');
+        updateSummary();
     }
 }
 
@@ -324,10 +351,10 @@ function checkout() {
         return;
     }
 
-    Utils.notify('Menuju pembayaran...', 'success');
+    // Utils.notify('Menuju pembayaran...', 'success'); // Removed to prevent "crash"/stuck toast
     setTimeout(() => {
         window.location.href = 'checkout.html';
-    }, 500);
+    }, 100);
 }
 
 /**
@@ -352,8 +379,8 @@ function loadRecommendedProducts() {
 
     container.innerHTML = recommended.map(product => `
         <div class="product-card" onclick="addRecommendedToCart(${product.id})">
-            <div class="product-image" style="height: 150px; font-size: 48px;">
-                ${product.icon}
+            <div class="product-image" style="height: 150px; background-image: url('${product.image || ''}'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; font-size: 48px;">
+                ${product.image ? '' : product.icon}
             </div>
             <div class="product-info">
                 <div class="product-category">${Utils.sanitizeHTML(product.category)}</div>

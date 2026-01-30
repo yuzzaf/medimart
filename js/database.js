@@ -405,7 +405,7 @@ class Database {
      * @param {number} total - Total price
      * @returns {Object} Order object
      */
-    createOrder(items, total) {
+    createOrder(items, total, shippingInfo, paymentMethod, promo, subtotal, discount) {
         if (!this.currentUser) return null;
 
         const newOrder = {
@@ -423,8 +423,13 @@ class Database {
                 status: 'pending' // Item-level status
             })),
             total: total,
+            subtotal: subtotal || total,
+            discount: discount || 0,
             status: 'pending', // Global status (calculated)
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            shipping: shippingInfo || {},
+            payment: paymentMethod || 'Transfer Bank',
+            promoCode: promo ? promo.code : null
         };
 
         this.orders.unshift(newOrder); // Add to beginning
@@ -441,12 +446,88 @@ class Database {
     }
 
     /**
-     * Reject Seller's Items in an Order
+     * Accept Specific Seller Item (Seller Action)
+     */
+    acceptSellerItem(orderId, productId, sellerId) {
+        // Use loose equality for order ID finding
+        const order = this.orders.find(o => o.id == orderId);
+        if (!order) return false;
+
+        const item = order.items.find(i => i.productId == productId && i.sellerId == sellerId);
+        if (!item) return false;
+
+        const currentStatus = item.status || 'pending';
+
+        if (currentStatus === 'pending') {
+            item.status = 'success';
+            this.updateGlobalStatus(order);
+            this.save(this.KEYS.ORDERS, this.orders);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Accept All Seller's Items in an Order (Bulk)
+     */
+    acceptSellerItems(orderId, sellerId) {
+        // Use loose equality
+        const order = this.orders.find(o => o.id == orderId);
+        if (!order) return false;
+
+        let modified = false;
+
+        order.items.forEach(item => {
+            const currentStatus = item.status || 'pending';
+            if (item.sellerId == sellerId && currentStatus === 'pending') {
+                item.status = 'success';
+                modified = true;
+            }
+        });
+
+        if (modified) {
+            this.updateGlobalStatus(order);
+            this.save(this.KEYS.ORDERS, this.orders);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Reject Specific Seller Item (Seller Action)
+     */
+    rejectSellerItem(orderId, productId, sellerId) {
+        const order = this.orders.find(o => o.id == orderId);
+        if (!order) return false;
+
+        const item = order.items.find(i => i.productId == productId && i.sellerId == sellerId);
+        if (!item) return false;
+
+        const currentStatus = item.status || order.status || 'pending';
+
+        // Allow rejection if pending or even success (to fix errors)
+        if (currentStatus === 'pending' || currentStatus === 'success') {
+            item.status = 'rejected';
+
+            // Restore stock
+            const product = this.getProductById(productId);
+            if (product) product.stock += item.quantity;
+
+            this.updateGlobalStatus(order);
+            this.save(this.KEYS.PRODUCTS, this.products);
+            this.save(this.KEYS.ORDERS, this.orders);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Reject Seller's Items in an Order (Bulk)
      * @param {string} orderId 
      * @param {number} sellerId 
      */
     rejectSellerItems(orderId, sellerId) {
-        const order = this.orders.find(o => o.id === orderId);
+        const order = this.orders.find(o => o.id == orderId);
         if (!order) return false;
 
         let modified = false;
@@ -454,7 +535,7 @@ class Database {
         order.items.forEach(item => {
             const currentStatus = item.status || 'pending';
             // Allow rejection if pending or even success (legacy default)
-            if (item.sellerId === sellerId && (currentStatus === 'pending' || currentStatus === 'success')) {
+            if (item.sellerId == sellerId && (currentStatus === 'pending' || currentStatus === 'success')) {
                 item.status = 'rejected';
 
                 // Restore stock
@@ -480,11 +561,21 @@ class Database {
      * @param {number} productId 
      */
     cancelOrderItem(orderId, productId) {
-        const order = this.orders.find(o => o.id === orderId);
-        if (!order) return false;
+        console.log('Attempting verify cancel:', orderId, productId);
+        const order = this.orders.find(o => o.id == orderId);
+        if (!order) {
+            console.error('Order not found', orderId);
+            return false;
+        }
 
-        const item = order.items.find(i => i.productId === productId);
-        const currentStatus = item ? (item.status || 'pending') : null;
+        const item = order.items.find(i => i.productId == productId);
+        if (!item) {
+            console.error('Item not found', productId, 'in order', order);
+            return false;
+        }
+
+        const currentStatus = item.status || 'pending';
+        console.log('Item found status:', currentStatus);
 
         if (item && (currentStatus === 'pending' || currentStatus === 'success')) {
             item.status = 'cancelled';
@@ -498,6 +589,39 @@ class Database {
             this.save(this.KEYS.ORDERS, this.orders);
             return true;
         }
+        console.error('Condition failed for status:', currentStatus);
+        return false;
+    }
+
+    /**
+     * Cancel Entire Order (Customer Action)
+     * @param {string} orderId
+     */
+    cancelOrder(orderId) {
+        const order = this.orders.find(o => o.id == orderId);
+        if (!order) return false;
+
+        if (order.status === 'cancelled') return false;
+
+        let modified = false;
+
+        order.items.forEach(item => {
+            const currentStatus = item.status || 'pending';
+            if (currentStatus !== 'cancelled' && currentStatus !== 'rejected') {
+                item.status = 'cancelled';
+                // Restore stock
+                const product = this.getProductById(item.productId);
+                if (product) product.stock += item.quantity;
+                modified = true;
+            }
+        });
+
+        if (modified) {
+            order.status = 'cancelled';
+            this.save(this.KEYS.PRODUCTS, this.products);
+            this.save(this.KEYS.ORDERS, this.orders);
+            return true;
+        }
         return false;
     }
 
@@ -505,13 +629,25 @@ class Database {
      * Update Global Order Status based on Items
      */
     updateGlobalStatus(order) {
+        if (!order || !order.items) return;
+
         const statuses = order.items.map(i => i.status || 'pending');
-        if (statuses.every(s => s === 'cancelled' || s === 'rejected')) {
-            order.status = 'cancelled'; // Fully cancelled/rejected
-        } else if (statuses.some(s => s === 'pending')) {
-            order.status = 'pending'; // Partial
+
+        // Logic Update:
+        // 1. If ALL items are cancelled/rejected -> Global Cancelled
+        // 2. If AT LEAST ONE item is success -> Global Success (even if others are cancelled/rejected/pending)
+        // 3. Otherwise -> Pending
+
+        const isAllFailed = statuses.every(s => s === 'cancelled' || s === 'rejected');
+        const hasSuccess = statuses.some(s => s === 'success');
+
+        if (isAllCancelled) {
+            order.status = 'cancelled';
+        } else if (hasSuccess) {
+            order.status = 'success';
         } else {
-            order.status = 'mixed'; // Completed items exist
+            // Mixed states (Success+Pending, Success+Cancelled, etc) treat as Pending/Processing
+            order.status = 'pending';
         }
     }
 
@@ -521,7 +657,7 @@ class Database {
      */
     deleteOrder(orderId) {
         const initialLength = this.orders.length;
-        this.orders = this.orders.filter(o => o.id !== orderId);
+        this.orders = this.orders.filter(o => o.id != orderId);
         if (this.orders.length < initialLength) {
             this.save(this.KEYS.ORDERS, this.orders);
             return true;
@@ -533,9 +669,27 @@ class Database {
      * Process checkout (reduce stock)
      * @returns {Object} Checkout result
      */
-    checkout() {
+    /**
+     * Process checkout (reduce stock)
+     * @param {Object} shippingInfo - {name, phone, address}
+     * @param {string} paymentMethod - Payment method name
+     * @param {Object} promo - Promo code object (optional)
+     * @returns {Object} Checkout result
+     */
+    checkout(shippingInfo, paymentMethod, promo = null) {
         const items = this.getCart();
-        const total = this.getCartTotal();
+        const subtotal = this.getCartTotal();
+        let total = subtotal;
+        let discount = 0;
+
+        if (promo) {
+            if (promo.discount < 1) {
+                discount = subtotal * promo.discount;
+            } else {
+                discount = promo.discount;
+            }
+            total = subtotal - discount;
+        }
 
         if (items.length === 0) {
             return { success: false, message: 'Keranjang kosong' };
@@ -568,7 +722,7 @@ class Database {
         this.save(this.KEYS.PRODUCTS, this.products);
 
         // Save Order
-        const order = this.createOrder(items, total);
+        const order = this.createOrder(items, total, shippingInfo, paymentMethod, promo, subtotal, discount);
 
         this.clearCart();
 
