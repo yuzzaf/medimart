@@ -14,6 +14,57 @@
     <!-- CSS -->
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <style>
+        /* Colorful Conversion Elements */
+        :root {
+            --gradient-primary: linear-gradient(135deg, #FF6B35, #FF5252, #E040FB);
+            --gradient-hover: linear-gradient(135deg, #FF8F6B, #FF7676, #EA80FC);
+        }
+
+        /* 1. Header Cart Badge */
+        .cart-badge {
+            background: var(--gradient-primary) !important;
+            color: white !important;
+            box-shadow: 0 4px 10px rgba(255, 107, 53, 0.4);
+            border: 2px solid white;
+        }
+
+        /* 2. Add to Cart Button (Marketplace) */
+        .btn-add-cart {
+            background: var(--gradient-primary) !important;
+            color: white !important;
+            border: none !important;
+            font-weight: 600 !important;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-add-cart:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(255, 107, 53, 0.3);
+            background: var(--gradient-hover) !important;
+        }
+
+        /* 3. Filter Buttons (Active) */
+        .filter-btn.active {
+            background: var(--gradient-primary) !important;
+            color: white !important;
+            border-color: transparent !important;
+            box-shadow: 0 4px 10px rgba(224, 64, 251, 0.3);
+        }
+
+        /* 4. Login Button */
+        .btn-login {
+            background: white;
+            color: #FF6B35 !important;
+            border: 2px solid #FF6B35 !important;
+            font-weight: 700 !important;
+        }
+
+        .btn-login:hover {
+            background: #FFF5F2 !important;
+        }
+    </style>
 </head>
 
 <body>
@@ -393,6 +444,64 @@
         </div>
     </div>
 
+    <!-- Sticky Checkout Bar -->
+    <div id="stickyCheckoutBar" class="hidden" style="
+        position: fixed; 
+        top: 155px; 
+        right: 20px; 
+        left: auto;
+        transform: none; 
+        width: auto; 
+        min-width: 250px;
+        background: linear-gradient(135deg, #FF6B35, #FF5252, #E040FB); 
+        color: white;
+        backdrop-filter: blur(5px); 
+        padding: 8px 16px; 
+        border-radius: 8px; 
+        box-shadow: 0 8px 20px -5px rgba(255, 107, 53, 0.4); 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        z-index: 900; 
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        animation: slideLeft 0.3s ease-out;
+    ">
+        <div style="display: flex; flex-direction: column; margin-right: 16px;">
+            <span style="font-size: 11px; opacity: 0.95; font-weight: 500; color: white;" id="stickyCount">0 Item</span>
+            <span style="font-size: 14px; font-weight: 800; color: white;" id="stickyTotal">Rp 0</span>
+        </div>
+        <button onclick="window.location.href='cart.html'" style="
+            background: white; 
+            color: #FF5252; 
+            border: none; 
+            padding: 6px 12px; 
+            border-radius: 6px; 
+            font-size: 12px;
+            font-weight: 700; 
+            cursor: pointer; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+            transition: transform 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            Checkout ➔
+        </button>
+    </div>
+
+    <!-- Animation Keyframes (Inline for simplicity) -->
+    <style>
+        @keyframes slideLeft {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
     <!-- JavaScript -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script src="js/database.js"></script>

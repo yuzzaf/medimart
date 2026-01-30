@@ -14,6 +14,31 @@
     <!-- CSS -->
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/cart.css">
+    <style>
+        /* Colorful Elements */
+        :root {
+            --gradient-primary: linear-gradient(135deg, #FF6B35, #FF5252, #E040FB);
+            --gradient-hover: linear-gradient(135deg, #FF8F6B, #FF7676, #EA80FC);
+        }
+
+        .cart-badge {
+            background: var(--gradient-primary) !important;
+            color: white !important;
+            border: 2px solid white;
+        }
+
+        /* Main Checkout Button */
+        .btn-checkout-page {
+            background: var(--gradient-primary) !important;
+            border: none !important;
+        }
+
+        .btn-checkout-page:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 107, 53, 0.4);
+            background: var(--gradient-hover) !important;
+        }
+    </style>
 </head>
 
 <body>
@@ -92,6 +117,11 @@
                 <div class="order-summary">
                     <div class="summary-card">
                         <h3>Ringkasan Pesanan</h3>
+
+                        <div id="cartSummaryItems"
+                            style="max-height: 200px; overflow-y: auto; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb;">
+                            <!-- Compact items will be rendered here -->
+                        </div>
 
                         <div class="summary-row">
                             <span>Subtotal (<span id="summaryItemCount">0</span> item)</span>

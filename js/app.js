@@ -398,14 +398,14 @@ class App {
         const currentUser = this.db.getCurrentUser();
         if (!currentUser || currentUser.role !== 'seller') return;
 
-        const customer = this.db.getAllUsers().find(u => u.id === customerId);
+        const customer = this.db.getAllUsers().find(u => String(u.id) === String(customerId));
         if (!customer) return;
 
         // Get orders for this customer that contain items from this seller
         const allOrders = this.db.orders;
         const myOrders = allOrders.filter(order =>
-            order.userId === customerId &&
-            order.items.some(item => item.sellerId === currentUser.id)
+            String(order.userId) === String(customerId) &&
+            order.items.some(item => String(item.sellerId) === String(currentUser.id))
         );
 
         // Keep a reference for refreshing
@@ -442,14 +442,17 @@ class App {
         if (!currentUser) return;
 
         if (confirm('Tolak produk ini? Stok akan dikembalikan.')) {
-            if (this.db.rejectSellerItem(orderId, productId, currentUser.id)) {
+            const result = this.db.rejectSellerItem(orderId, productId, currentUser.id);
+            if (result && result.success) {
                 Utils.notify('Produk berhasil ditolak.', 'success');
                 // Refresh Modal
                 if (this.currentViewCustomerId) {
                     this.showCustomerOrders(this.currentViewCustomerId);
                 }
             } else {
-                Utils.notify('Gagal menolak produk.', 'error');
+                const msg = result && result.message ? result.message : 'Gagal menolak produk.';
+                Utils.notify(msg, 'error');
+                alert(msg);
             }
         }
     }
@@ -499,18 +502,21 @@ class App {
      */
     cancelOrderItem(orderId, productId) {
         if (confirm('Batalkan produk ini? Stok akan dikembalikan.')) {
-            if (this.db.cancelOrderItem(orderId, productId)) {
+            const result = this.db.cancelOrderItem(orderId, productId);
+            if (result && result.success) {
                 Utils.notify('Item dibatalkan.', 'success');
                 // Reload Dashboard View (no page reload)
                 this.ui.renderDashboard();
 
                 // If detail modal is open, refresh it too
                 if (this.currentOrderDetailId === orderId) {
-                    const order = this.db.orders.find(o => o.id === orderId);
+                    const order = this.db.orders.find(o => o.id == orderId); // Loose equality safe here
                     this.ui.renderOrderDetailModal(order);
                 }
             } else {
-                Utils.notify('Gagal membatalkan item.', 'error');
+                const msg = result && result.message ? result.message : 'Gagal membatalkan item.';
+                Utils.notify(msg, 'error');
+                alert(msg); // Force alert so user sees it
             }
         }
     }

@@ -203,7 +203,7 @@ class Database {
      * @returns {boolean} Success status
      */
     updateProduct(id, product) {
-        const index = this.products.findIndex(p => p.id === id);
+        const index = this.products.findIndex(p => String(p.id) === String(id));
         if (index !== -1) {
             this.products[index] = {
                 ...this.products[index],
@@ -222,7 +222,7 @@ class Database {
      */
     deleteProduct(id) {
         const initialLength = this.products.length;
-        this.products = this.products.filter(p => p.id !== id);
+        this.products = this.products.filter(p => String(p.id) !== String(id));
         if (this.products.length < initialLength) {
             this.save(this.KEYS.PRODUCTS, this.products);
             return true;
@@ -247,7 +247,7 @@ class Database {
         return this.products.filter(p =>
             p.seller === this.currentUser.username ||
             p.seller === this.currentUser.name ||
-            p.sellerId === this.currentUser.id
+            String(p.sellerId) === String(this.currentUser.id)
         );
     }
 
@@ -257,7 +257,7 @@ class Database {
      * @returns {Object|null} Product or null
      */
     getProductById(id) {
-        return this.products.find(p => p.id === id) || null;
+        return this.products.find(p => String(p.id) === String(id)) || null;
     }
 
     /**
@@ -316,7 +316,7 @@ class Database {
         }
 
         let cart = this._getUserCart();
-        const existing = cart.find(item => item.productId === productId);
+        const existing = cart.find(item => String(item.productId) === String(productId));
 
         if (existing) {
             if (existing.quantity + quantity <= product.stock) {
@@ -345,11 +345,11 @@ class Database {
         if (!product) return false;
 
         let cart = this._getUserCart();
-        const item = cart.find(item => item.productId === productId);
+        const item = cart.find(item => String(item.productId) === String(productId));
         if (!item) return false;
 
         if (quantity <= 0) {
-            cart = cart.filter(item => item.productId !== productId);
+            cart = cart.filter(item => String(item.productId) !== String(productId));
         } else if (quantity <= product.stock) {
             item.quantity = quantity;
         } else {
@@ -433,7 +433,12 @@ class Database {
         };
 
         this.orders.unshift(newOrder); // Add to beginning
-        this.save(this.KEYS.ORDERS, this.orders);
+        try {
+            this.save(this.KEYS.ORDERS, this.orders);
+            console.log('Order saved successfully:', newOrder.id);
+        } catch (e) {
+            console.error('Failed to save order:', e);
+        }
         return newOrder;
     }
 
@@ -442,7 +447,7 @@ class Database {
      */
     getUserOrders() {
         if (!this.currentUser) return [];
-        return this.orders.filter(o => o.userId === this.currentUser.id);
+        return this.orders.filter(o => String(o.userId) === String(this.currentUser.id));
     }
 
     /**
@@ -450,10 +455,10 @@ class Database {
      */
     acceptSellerItem(orderId, productId, sellerId) {
         // Use loose equality for order ID finding
-        const order = this.orders.find(o => o.id == orderId);
+        const order = this.orders.find(o => String(o.id) === String(orderId));
         if (!order) return false;
 
-        const item = order.items.find(i => i.productId == productId && i.sellerId == sellerId);
+        const item = order.items.find(i => String(i.productId) === String(productId) && String(i.sellerId) === String(sellerId));
         if (!item) return false;
 
         const currentStatus = item.status || 'pending';
@@ -497,13 +502,18 @@ class Database {
      * Reject Specific Seller Item (Seller Action)
      */
     rejectSellerItem(orderId, productId, sellerId) {
-        const order = this.orders.find(o => o.id == orderId);
-        if (!order) return false;
+        const order = this.orders.find(o => String(o.id) === String(orderId));
+        if (!order) return { success: false, message: 'Order not found: ' + orderId };
 
-        const item = order.items.find(i => i.productId == productId && i.sellerId == sellerId);
-        if (!item) return false;
+        const item = order.items.find(i => String(i.productId) === String(productId) && String(i.sellerId) === String(sellerId));
+        if (!item) return { success: false, message: 'Item not found (Prod: ' + productId + ', Seller: ' + sellerId + ')' };
 
         const currentStatus = item.status || order.status || 'pending';
+
+        // Allow idempotency
+        if (currentStatus === 'rejected') {
+            return { success: true, message: 'Item already rejected.' };
+        }
 
         // Allow rejection if pending or even success (to fix errors)
         if (currentStatus === 'pending' || currentStatus === 'success') {
@@ -516,9 +526,9 @@ class Database {
             this.updateGlobalStatus(order);
             this.save(this.KEYS.PRODUCTS, this.products);
             this.save(this.KEYS.ORDERS, this.orders);
-            return true;
+            return { success: true };
         }
-        return false;
+        return { success: false, message: 'Status cannot be rejected: ' + currentStatus };
     }
 
     /**
@@ -561,36 +571,41 @@ class Database {
      * @param {number} productId 
      */
     cancelOrderItem(orderId, productId) {
-        console.log('Attempting verify cancel:', orderId, productId);
-        const order = this.orders.find(o => o.id == orderId);
-        if (!order) {
-            console.error('Order not found', orderId);
-            return false;
-        }
+        console.log('DB Cancel Item:', orderId, productId);
+        // Ensure string comparison for robustness
+        const order = this.orders.find(o => String(o.id) === String(orderId));
+        if (!order) return { success: false, message: 'Order not found: ' + orderId };
 
-        const item = order.items.find(i => i.productId == productId);
-        if (!item) {
-            console.error('Item not found', productId, 'in order', order);
-            return false;
-        }
+        const item = order.items.find(i => String(i.productId) === String(productId));
+        if (!item) return { success: false, message: 'Item not found in order: ' + productId };
 
         const currentStatus = item.status || 'pending';
-        console.log('Item found status:', currentStatus);
+        console.log('Current Status:', currentStatus);
 
-        if (item && (currentStatus === 'pending' || currentStatus === 'success')) {
-            item.status = 'cancelled';
-
-            // Restore stock
-            const product = this.getProductById(item.productId);
-            if (product) product.stock += item.quantity;
-
-            this.updateGlobalStatus(order);
-            this.save(this.KEYS.PRODUCTS, this.products);
-            this.save(this.KEYS.ORDERS, this.orders);
-            return true;
+        // Allow idempotency: If already cancelled, return success to refresh UI
+        if (currentStatus === 'cancelled') {
+            return { success: true, message: 'Item already cancelled.' };
         }
-        console.error('Condition failed for status:', currentStatus);
-        return false;
+
+        if (currentStatus === 'pending' || currentStatus === 'success') {
+            try {
+                item.status = 'cancelled';
+
+                // Restore stock
+                const product = this.getProductById(item.productId);
+                if (product) product.stock += item.quantity;
+                else console.warn('Product not found for stock restore:', item.productId);
+
+                this.updateGlobalStatus(order);
+                this.save(this.KEYS.PRODUCTS, this.products);
+                this.save(this.KEYS.ORDERS, this.orders);
+                return { success: true };
+            } catch (e) {
+                console.error('CRITICAL ERROR in cancelOrderItem:', e);
+                return { success: false, message: 'Internal Error: ' + e.message };
+            }
+        }
+        return { success: false, message: 'Item status cannot be cancelled: ' + currentStatus };
     }
 
     /**
@@ -626,6 +641,39 @@ class Database {
     }
 
     /**
+     * Recalculate Order Totals based on active items
+     * @param {Object} order 
+     */
+    recalculateOrderTotals(order) {
+        if (!order || !order.items) return;
+
+        // 1. Calculate Subtotal of ACTIVE items only
+        const activeItems = order.items.filter(i =>
+            i.status !== 'cancelled' && i.status !== 'rejected'
+        );
+
+        const newSubtotal = activeItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+        // 2. Adjust Discount (optional logic: keep fixed amount or percentage?)
+        // For MVP: If discount was fixed amount, ensure it doesn't exceed subtotal
+        let newDiscount = order.discount || 0;
+        if (newDiscount > newSubtotal) {
+            newDiscount = newSubtotal; // Cap discount at subtotal
+        }
+
+        // 3. Calculate Final Total
+        let newTotal = newSubtotal - newDiscount;
+        if (newTotal < 0) newTotal = 0;
+
+        // 4. Update Order
+        order.subtotal = newSubtotal;
+        order.discount = newDiscount;
+        order.total = newTotal;
+
+        console.log(`Recalculated Order ${order.id}: Sub=${newSubtotal}, Disc=${newDiscount}, Total=${newTotal}`);
+    }
+
+    /**
      * Update Global Order Status based on Items
      */
     updateGlobalStatus(order) {
@@ -639,16 +687,21 @@ class Database {
         // 3. Otherwise -> Pending
 
         const isAllFailed = statuses.every(s => s === 'cancelled' || s === 'rejected');
+        const hasPending = statuses.some(s => s === 'pending');
         const hasSuccess = statuses.some(s => s === 'success');
 
-        if (isAllCancelled) {
+        if (isAllFailed) {
             order.status = 'cancelled';
+        } else if (hasPending) {
+            order.status = 'pending';
         } else if (hasSuccess) {
             order.status = 'success';
         } else {
-            // Mixed states (Success+Pending, Success+Cancelled, etc) treat as Pending/Processing
             order.status = 'pending';
         }
+
+        // RECACLULATE PRICE whenever status changes
+        this.recalculateOrderTotals(order);
     }
 
     /**
@@ -697,10 +750,9 @@ class Database {
 
         // validate stock first
         const insufficientStock = items.find(item => {
-            const product = this.getProductById(item.productId);
             // Re-fetch product to get latest stock
-            const latestProduct = this.getProductById(item.productId);
-            return !latestProduct || latestProduct.stock < item.quantity;
+            const product = this.getProductById(item.productId);
+            return !product || product.stock < item.quantity;
         });
 
         if (insufficientStock) {
@@ -855,19 +907,20 @@ class Database {
      * @param {number|string} sellerIdOrName 
      */
     getCustomersBySeller(sellerId) {
+        const sIdString = String(sellerId);
         // 1. Find all orders containing items from this seller
         const sellerOrders = this.orders.filter(order =>
             order.items.some(item => {
                 const product = this.getProductById(item.productId);
-                return product && (product.sellerId === sellerId || product.seller === sellerId);
+                return product && (String(product.sellerId) === sIdString || product.seller === sellerId);
             })
         );
 
-        // 2. Extract unique User IDs
-        const custIds = [...new Set(sellerOrders.map(o => o.userId))];
+        // 2. Extract unique User IDs (as strings for comparison)
+        const custIds = [...new Set(sellerOrders.map(o => String(o.userId)))];
 
         // 3. Return User objects
-        return this.users.filter(u => custIds.includes(u.id));
+        return this.users.filter(u => custIds.includes(String(u.id)));
     }
 
     // ==========================================
