@@ -16,6 +16,38 @@
     <link rel="stylesheet" href="css/cart.css">
     <link rel="stylesheet" href="css/success_modal.css">
     <style>
+        /* Colorful Conversion Elements */
+        :root {
+            --gradient-primary: linear-gradient(135deg, #FF6B35, #FF5252, #E040FB);
+            --gradient-hover: linear-gradient(135deg, #FF8F6B, #FF7676, #EA80FC);
+        }
+
+        /* 1. Payment Selection */
+        .payment-option.selected {
+            border-color: #FF5252 !important;
+            background: rgba(255, 82, 82, 0.05) !important;
+            box-shadow: 0 4px 10px rgba(255, 82, 82, 0.15);
+        }
+
+        .payment-radio:checked {
+            accent-color: #FF5252;
+        }
+
+        /* 2. Confirm Button */
+        .btn-checkout-page {
+            background: var(--gradient-primary) !important;
+            border: none !important;
+            color: white !important;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-checkout-page:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(255, 107, 53, 0.3);
+            background: var(--gradient-hover) !important;
+        }
+    </style>
+    <style>
         .checkout-container {
             display: grid;
             grid-template-columns: 1fr 400px;

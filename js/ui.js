@@ -59,9 +59,34 @@ class UI {
      * Update cart badge count
      */
     updateCartBadge() {
+        const count = this.db.getCartItemCount();
         const badge = Utils.$('cartBadge');
         if (badge) {
-            badge.textContent = this.db.getCartItemCount();
+            badge.textContent = count;
+        }
+
+        // Update Sticky Checkout Bar (New Feature)
+        const stickyBar = Utils.$('stickyCheckoutBar');
+        const stickyCount = Utils.$('stickyCount');
+        const stickyTotal = Utils.$('stickyTotal');
+
+        if (stickyBar && stickyCount && stickyTotal) {
+            // Check visibility: Only show if Marketplace View is NOT hidden
+            const mpView = Utils.$('marketplaceView');
+            const isMarketplaceVisible = mpView && !mpView.classList.contains('hidden');
+
+            if (count > 0 && isMarketplaceVisible) {
+                // Show Bar
+                Utils.removeClass(stickyBar, 'hidden');
+                stickyBar.style.display = 'flex'; // Force flex logic if class list issues
+
+                stickyCount.textContent = `${count} Barang di Keranjang`;
+                stickyTotal.textContent = Utils.formatPrice(this.db.getCartTotal());
+            } else {
+                // Hide Bar
+                Utils.addClass(stickyBar, 'hidden');
+                stickyBar.style.display = 'none';
+            }
         }
     }
 
@@ -78,6 +103,12 @@ class UI {
 
         // Hide Dashboards
         Utils.addClass(Utils.$('storeDashboardView'), 'hidden');
+        Utils.addClass(Utils.$('customerDashboardView'), 'hidden');
+
+        this.updateCartBadge(); // Refresh Sticky Bar visibility
+
+        // Refresh Badge & Sticky Bar
+        this.updateCartBadge();
         Utils.addClass(Utils.$('customerDashboardView'), 'hidden');
         Utils.addClass(Utils.$('dashboardView'), 'hidden'); // Legacy safety
 
@@ -98,6 +129,7 @@ class UI {
         // Note: We don't manually unhide a specific dashboard here 
         // because renderDashboard() decides which one to show based on role.
         this.renderDashboard();
+        this.updateCartBadge(); // Force sticky bar update (will hide it since marketplace is hidden)
     }
 
     // ==========================================
@@ -461,7 +493,7 @@ class UI {
 
                                 <td style="padding: 12px;">${new Date(u.createdAt).toLocaleDateString()}</td>
                                 <td style="padding: 12px;">
-                                    <button class="btn-small btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="app.showCustomerOrders(${u.id})">
+                                    <button class="btn-small btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="app.showCustomerOrders('${u.id}')">
                                         📜 Pesanan
                                     </button>
                                 </td>
@@ -528,10 +560,17 @@ class UI {
                     <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
                         ${order.items.map(i => {
             const iStatus = i.status || order.status || 'pending';
+            console.log(`RenderItem: ${i.productName} (${i.productId}), status key: ${i.status}, derived: ${iStatus}`); // DEBUG LOG
             let opacity = (iStatus === 'cancelled' || iStatus === 'rejected') ? '0.6' : '1';
-            return `<li style="margin-bottom: 6px; height: 20px; opacity: ${opacity}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                - ${i.productName} (x${i.quantity})
-                            </li>`;
+            return `<li style="margin-bottom: 6px; min-height: 40px; display: flex; align-items: center; opacity: ${opacity}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            <div style="width: 32px; height: 32px; border-radius: 4px; background: #f3f4f6; margin-right: 8px; background-image: url('${i.image || ''}'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px;">
+                                ${i.image ? '' : (i.icon || '📦')}
+                            </div>
+                            <div style="display: flex; flex-direction: column;">
+                                <span style="font-size: 13px;">${i.productName} (x${i.quantity})</span>
+                                <span style="font-size: 10px; color: #6b7280;">🏬 ${i.sellerName || 'Seller'}</span>
+                            </div>
+                        </li>`;
         }).join('')}
                     </ul>
 
@@ -544,9 +583,9 @@ class UI {
             const iStatus = i.status || order.status || 'pending';
             let opacity = (iStatus === 'cancelled' || iStatus === 'rejected') ? '0.6' : '1';
             // Show Unit Price * Qty = Subtotal for that item
-            return `<li style="margin-bottom: 6px; height: 20px; opacity: ${opacity}; color: #4b5563; font-family: monospace;">
-                                ${Utils.formatPrice(i.price * i.quantity)}
-                            </li>`;
+            return `<li style="margin-bottom: 6px; min-height: 40px; display: flex; align-items: center; opacity: ${opacity}; color: #4b5563; font-family: monospace;">
+                            ${Utils.formatPrice(i.price * i.quantity)}
+                        </li>`;
         }).join('')}
                     </ul>
                 </td>
@@ -560,12 +599,20 @@ class UI {
             let action = '&nbsp;'; // Spacer for alignment if no button
 
             if (iStatus === 'cancelled' || iStatus === 'rejected') {
-                action = `<span style="color: #6b7280; font-size: 10px;">${iStatus === 'rejected' ? 'Ditolak' : 'Batal'}</span>`;
+                action = `
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <span style="color: #6b7280; font-size: 10px;">${iStatus === 'rejected' ? 'Ditolak' : 'Batal'}</span>
+                    </div>`;
             } else if (iStatus === 'pending' || iStatus === 'success') {
-                action = `<button onclick="app.cancelOrderItem('${order.id}', ${i.productId})" style="background: #fee2e2; color: #ef4444; border: none; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 600;">🚫 Batal Item</button>`;
+                // Force string conversion for ID
+                action = `
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <button onclick="app.cancelOrderItem('${order.id}', '${i.productId}')" style="background: #fee2e2; color: #ef4444; border: none; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 600;">🚫 Batal Item</button>
+                        <span style="font-size: 10px; color: #f59e0b;">${iStatus === 'success' ? 'Sukses' : 'Pending'}</span>
+                    </div>`;
             }
 
-            return `<li style="margin-bottom: 6px; height: 20px; display: flex; align-items: center; justify-content: flex-start;">${action}</li>`;
+            return `<li style="margin-bottom: 6px; min-height: 40px; display: flex; align-items: center; justify-content: flex-start;">${action}</li>`;
         }).join('')}
                     </ul>
                 </td>
@@ -645,6 +692,7 @@ class UI {
         const tbody = document.getElementById('odItemsBody');
         tbody.innerHTML = order.items.map(item => {
             const iStatus = item.status || order.status || 'pending';
+            console.log(`DetailModalItem: ${item.productName}, status key: ${item.status}, derived: ${iStatus}`); // DEBUG LOG
             let iBadge = '';
             if (iStatus === 'cancelled') iBadge = '<span style="font-size:11px; color:#ef4444; background:#fef2f2; padding:2px 8px; border-radius:4px; font-weight:600;">Dibatalkan</span>';
             else if (iStatus === 'rejected') iBadge = '<span style="font-size:11px; color:#6b7280; background:#f3f4f6; padding:2px 8px; border-radius:4px; font-weight:600;">Ditolak Toko</span>';
@@ -655,7 +703,7 @@ class UI {
             // Only show cancel if pending/success/mixed
             if (iStatus === 'pending' || iStatus === 'success' || iStatus === 'mixed') {
                 actionBtn = `<button
-        onclick="app.cancelOrderItem('${order.id}', ${item.productId})"
+        onclick="app.cancelOrderItem('${order.id}', '${item.productId}')"
         style="padding: 4px 10px; font-size: 11px; background: #fee2e2; color: #ef4444; border: 1px solid #fecaca; border-radius: 6px; cursor: pointer; font-weight: 600;">
                     🚫 Batal Item
                 </button>`;
@@ -668,9 +716,10 @@ class UI {
                             <div style="width: 40px; height: 40px; border-radius: 6px; background: #f3f4f6; margin-right: 12px; background-image: url('${item.image || ''}'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 20px;">
                                 ${item.image ? '' : (item.icon || '📦')}
                             </div>
-                            <div>
-                                <div style="font-weight: 500; font-size: 14px;">${item.productName}</div>
-                                <div style="font-size: 11px; color: #6b7280;">${item.sellerName || 'Toko Resmi'}</div>
+                            <div style="display: flex; flex-direction: column;">
+                                <strong style="font-size: 14px; display: block; margin-bottom: 4px;">${item.productName}</strong>
+                                <span style="font-size: 12px; color: #6b7280;">Harga Satuan: ${Utils.formatPrice(item.price)} (x${item.quantity})</span>
+                                <span style="font-size: 11px; color: var(--primary); margin-top: 2px;">🏬 ${item.sellerName || 'Toko'}</span>
                             </div>
                         </div>
                     </td>
@@ -751,10 +800,10 @@ class UI {
         if (view === 'dashboard') {
             if (isAdminOrSeller && user.role !== 'admin') {
                 actions = `
-            <button class="btn-small btn-edit" onclick="app.openProductModal(${product.id})">
+            <button class="btn-small btn-edit" onclick="app.openProductModal('${product.id}')">
                         ✏️ Edit
                     </button>
-            <button class="btn-small btn-delete" onclick="app.deleteProduct(${product.id})">
+            <button class="btn-small btn-delete" onclick="app.deleteProduct('${product.id}')">
                 🗑️ Hapus
             </button>
         `;
@@ -766,17 +815,17 @@ class UI {
             if (isAdminOrSeller) {
                 // Admin sees Edit/Delete even in Marketplace
                 actions = `
-            <button class="btn-small btn-edit" onclick="app.openProductModal(${product.id})">
+            <button class="btn-small btn-edit" onclick="app.openProductModal('${product.id}')">
                         ✏️ Edit
                     </button>
             `;
             } else {
                 // Customer / Guest
                 actions = `
-            <button class="btn-small btn-cart"
-        onclick="app.addToCart(${product.id})"
+            <button class="btn-small btn-add-cart"
+        onclick="app.addToCart('${product.id}')"
                             ${isOutOfStock ? 'disabled' : ''}>
-                        🛒 ${isOutOfStock ? 'Habis' : 'Tambah'}
+                        🛒 ${isOutOfStock ? 'Habis' : 'Tambah Keranjang'}
                     </button>
             `;
             }
@@ -1095,8 +1144,12 @@ class UI {
                 else if (order.status === 'cancelled') statusBadge = '<span class="product-badge badge-error" style="background: #ef4444; position: static;">Dibatalkan User</span>';
                 else statusBadge = '<span class="product-badge" style="background: #f3f4f6; color: #6b7280; position: static;">' + (order.status === 'pending' ? 'Pending' : order.status) + '</span>';
 
-                // Calculate Seller Total
-                const sellerTotal = myItems.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+                // Calculate Seller Total (Active items only)
+                const sellerTotal = myItems.reduce((acc, curr) => {
+                    const status = curr.status || order.status || 'pending';
+                    if (status === 'cancelled' || status === 'rejected') return acc;
+                    return acc + (curr.price * curr.quantity);
+                }, 0);
                 const shipping = order.shipping || {};
                 const paymentMethod = order.payment || 'Transfer Bank';
 
@@ -1126,8 +1179,9 @@ class UI {
                     </div>
                     
                     <div style="margin-bottom: 12px;">
-                        ${myItems.map(i => {
+                ${order.items.map(i => {
                     const iStatus = i.status || order.status || 'pending';
+                    console.log(`SellerViewItem: ${i.productName}, status key: ${i.status}, derived: ${iStatus}`); // DEBUG LOG
                     let iBadge = '';
                     if (iStatus === 'cancelled') iBadge = '<span style="font-size:10px; color:#ef4444; background:#fef2f2; padding:2px 6px; border-radius:4px;">Dibatalkan Customer</span>';
                     else if (iStatus === 'rejected') iBadge = '<span style="font-size:10px; color:#6b7280; background:#f3f4f6; padding:2px 6px; border-radius:4px;">Ditolak</span>';
@@ -1137,10 +1191,10 @@ class UI {
                     let pendingAction = '';
                     if (iStatus === 'pending') {
                         pendingAction = `
-                            <button class="btn-small" style="padding: 2px 8px; font-size: 10px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;" onclick = "app.acceptOrderItem('${order.id}', ${i.productId})">
+                            <button class="btn-small" style="padding: 2px 8px; font-size: 10px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;" onclick = "app.acceptOrderItem('${order.id}', '${i.productId}')">
                                 ✅ Terima
                             </button>
-                            <button class="btn-small btn-delete" style="padding: 2px 8px; font-size: 10px; margin-left:4px;" onclick="app.rejectOrderItem('${order.id}', ${i.productId})">
+                            <button class="btn-small btn-delete" style="padding: 2px 8px; font-size: 10px; margin-left:4px;" onclick="app.rejectOrderItem('${order.id}', '${i.productId}')">
                                 ⛔ Tolak
                             </button>
                          `;
@@ -1152,10 +1206,11 @@ class UI {
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                                 <div style="display: flex; align-items: center;">
                                     <div style="width: 40px; height: 40px; border-radius: 4px; background-image: url('${i.image || ''}'); background-size: cover; margin-right: 8px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center;">${i.image ? '' : (i.icon || '📦')}</div>
-                                    <div>
-                                        <div style="font-weight: 500; font-size: 13px;">${i.productName}</div>
-                                        <div style="font-size: 12px; color: #6b7280;">${i.quantity} x ${Utils.formatPrice(i.price)}</div>
-                                    </div>
+                                    <div style="display: flex; flex-direction: column;">
+                                <strong style="font-size: 14px; display: block; margin-bottom: 4px;">${i.productName}</strong>
+                                <span style="font-size: 12px; color: #6b7280;">Harga Satuan: ${Utils.formatPrice(i.price)} (x${i.quantity})</span>
+                                <span style="font-size: 11px; color: var(--primary); margin-top: 2px;">🏬 ${i.sellerName || 'Toko'}</span>
+                            </div>
                                 </div>
                                 <div>
                                     ${iBadge}
