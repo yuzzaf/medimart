@@ -754,50 +754,7 @@
 /* ==========================================
    Toast Notifications
    ========================================== */
-.toast {
-    position: fixed;
-    top: 24px;
-    right: 24px;
-    padding: 16px 24px;
-    background: white;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    z-index: 9999;
-    animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    border-left: 4px solid var(--primary);
-    font-weight: 500;
-    max-width: 350px;
-}
-
-.toast-success {
-    border-left-color: #10b981;
-}
-
-.toast-error {
-    border-left-color: #ef4444;
-}
-
-@keyframes toastSlideIn {
-    from {
-        opacity: 0;
-        transform: translateX(100px) scale(0.9);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0) scale(1);
-    }
-}
-
-@keyframes toastFadeOut {
-    to {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-}
+/* Toast styles now inherited from style.css */
 
 /* ==========================================
    Responsive
